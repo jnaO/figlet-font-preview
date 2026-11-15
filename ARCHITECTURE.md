@@ -27,6 +27,9 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
 cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
 man/figlet-font-preview.1         man(7) page: OPTIONS/FILES/KEYS mirror README's Usage, Fonts and Keys sections; a drift test in
                                   cmd/figlet-font-preview/main_test.go checks every flag and font root appears. Edit with README
+completions/figlet-font-preview.{bash,zsh,fish}
+                                  static shell completions (flags + directories after --font-dir); the same drift test checks
+                                  each file names every flag. Brew links the zsh file as _figlet-font-preview
 internal/figfont/
   font.go          Parse/ParseFile: flf2a + tlf2a headers, zip-archived fonts, glyph table; THE font parser
   reader.go        byte-level line reader reproducing figlet's myfgets, header sscanf subset, C strtol (code tags)

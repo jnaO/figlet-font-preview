@@ -65,3 +65,21 @@ func TestManPageCoversFlagsAndRoots(t *testing.T) {
 		}
 	}
 }
+
+func TestCompletionsCoverFlags(t *testing.T) {
+	fs := flag.NewFlagSet("figlet-font-preview", flag.ContinueOnError)
+	registerFlags(fs)
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		t.Run(shell, func(t *testing.T) {
+			script := readRepoFile(t, "completions/figlet-font-preview."+shell)
+			fs.VisitAll(func(f *flag.Flag) {
+				if !strings.Contains(script, "--"+f.Name) && !strings.Contains(script, "-l "+f.Name) {
+					t.Errorf("%s completion does not mention --%s", shell, f.Name)
+				}
+			})
+			if !strings.Contains(script, "help") {
+				t.Errorf("%s completion does not offer --help", shell)
+			}
+		})
+	}
+}
