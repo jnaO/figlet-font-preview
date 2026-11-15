@@ -35,11 +35,17 @@ type dirList []string
 func (d *dirList) String() string     { return strings.Join(*d, ",") }
 func (d *dirList) Set(v string) error { *d = append(*d, v); return nil }
 
+// registerFlags defines the command-line flags on fs.
+func registerFlags(fs *flag.FlagSet) (dirs *dirList, center, showVersion *bool) {
+	dirs = new(dirList)
+	fs.Var(dirs, "font-dir", "extra directory to search for fonts (repeatable)")
+	center = fs.Bool("center", false, "centre the rendered text in the preview")
+	showVersion = fs.Bool("version", false, "print version and exit")
+	return dirs, center, showVersion
+}
+
 func main() {
-	var dirs dirList
-	flag.Var(&dirs, "font-dir", "extra directory to search for fonts (repeatable)")
-	center := flag.Bool("center", false, "centre the rendered text in the preview")
-	showVersion := flag.Bool("version", false, "print version and exit")
+	dirs, center, showVersion := registerFlags(flag.CommandLine)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: figlet-font-preview [--center] [--font-dir DIR]... [text]\n\n")
 		flag.PrintDefaults()
@@ -57,7 +63,7 @@ func main() {
 		text = strings.Join(flag.Args(), " ")
 	}
 
-	cat := catalog.Discover(append(catalog.DefaultRoots(), dirs...))
+	cat := catalog.Discover(append(catalog.DefaultRoots(), *dirs...))
 	p := tea.NewProgram(tui.New(cat, text, *center), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

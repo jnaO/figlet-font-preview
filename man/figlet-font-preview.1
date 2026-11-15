@@ -1,0 +1,150 @@
+.TH FIGLET-FONT-PREVIEW 1 "November 15, 2026"
+.SH NAME
+figlet-font-preview \- preview text in every installed FIGlet and TOIlet font
+.SH SYNOPSIS
+.B figlet-font-preview
+.RB [ \-\-center ]
+.RB [ \-\-font\-dir
+.IR DIR ]...
+.RI [ text ]
+.br
+.B figlet-font-preview
+.B \-\-version
+.SH DESCRIPTION
+.B figlet-font-preview
+is an interactive terminal program.
+It renders a sample text in every FIGlet and TOIlet font it finds,
+with a fuzzy-searchable, multi-select font sidebar
+for comparing fonts side by side.
+.PP
+The program parses and renders the font files itself.
+It never runs
+.BR figlet (6),
+so only the font files need to be installed.
+.PP
+The remaining arguments are joined with spaces to form the initial text.
+The default is
+.BR Hello .
+.SH OPTIONS
+Options may be given with one or two leading dashes, for example
+.B \-center
+or
+.BR \-\-center .
+.TP
+.B \-\-center
+Centre the rendered text in the preview.
+.TP
+.BI \-\-font\-dir " DIR"
+Also search
+.I DIR
+for fonts.
+May be repeated.
+.B \-\-font\-dir=\c
+.I DIR
+is accepted too.
+.TP
+.B \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print the usage text, including the default font roots, and exit.
+.SH KEYS
+.SS Anywhere
+.TP
+.B tab\fR, \fBshift+tab
+Cycle focus: text, search, list.
+.TP
+.BR pgup ", " pgdn ", " ctrl+u ", " ctrl+d ", mouse wheel"
+Scroll the preview.
+.TP
+.B ctrl+o
+Open or close the options pane.
+.TP
+.B ctrl+y
+Copy the cursor font's render to the clipboard as plain text,
+wrapped and centred as shown.
+.TP
+.B ctrl+s
+Save the cursor font's render as a coloured
+.IB font .svg
+in the current directory.
+An existing file is never overwritten; \-2, \-3, ... is added to the name.
+.TP
+.B ctrl+c
+Quit.
+.SS Text
+.TP
+.BR "type" ", " enter
+Edit the text.
+.B enter
+starts a new line.
+The box grows to 5 rows, then scrolls.
+.SS Search
+.TP
+.B type
+Fuzzy-filter fonts.
+.TP
+.BR up ", " down
+Move in the list.
+.TP
+.B enter
+Select or deselect the highlighted font.
+.TP
+.B esc
+Clear the search.
+.SS List
+.TP
+.BR up ", " down ", " j ", " k ", " g ", " G
+Move.
+.TP
+.BR space ", " enter
+Select or deselect.
+.TP
+.B x
+Clear the selection.
+.TP
+.B /
+Jump to the search.
+.TP
+.B esc
+Clear the search.
+.TP
+.B q
+Quit.
+.SS Options pane
+.TP
+.BR up ", " down ", " j ", " k
+Move.
+.TP
+.BR space ", " enter
+Toggle the row.
+.TP
+.BR left ", " right ", " h ", " l
+Change Group by, the background Mode, or a slider's value.
+.TP
+.B tab
+Back to the text, leaving the pane open.
+.TP
+.BR esc ", " ctrl+o
+Close the pane.
+.SH FILES
+Fonts are read from these directories when they exist:
+.RS
+.nf
+/opt/homebrew/share/figlet
+/usr/local/share/figlet
+/usr/share/figlet
+~/figlet-fonts
+.fi
+.RE
+.PP
+On Windows only
+.B %USERPROFILE%\efiglet-fonts
+and the
+.B \-\-font\-dir
+directories are searched.
+Fonts in different directories are listed separately
+even when they are the same font.
+.SH SEE ALSO
+.BR figlet (6),
+.BR toilet (1)

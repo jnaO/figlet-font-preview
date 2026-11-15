@@ -32,6 +32,8 @@ archives:
     files:
       - LICENSE
       - README.md
+      - man/*
+      - completions/*
 
 checksum:
   name_template: checksums.txt
@@ -42,6 +44,11 @@ changelog:
 homebrew_casks:
   - name: figlet-font-preview
     binaries: [figlet-font-preview]
+    manpages: [man/figlet-font-preview.1]
+    completions:
+      bash: completions/figlet-font-preview.bash
+      zsh: completions/figlet-font-preview.zsh
+      fish: completions/figlet-font-preview.fish
     homepage: https://github.com/jnaO/figlet-font-preview
     description: Preview text in every installed FIGlet and TOIlet font
     dependencies:

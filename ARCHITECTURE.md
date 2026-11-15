@@ -22,9 +22,14 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
 .github/workflows/release.yml     on v* tag push: go test, then goreleaser release (actions pinned to SHAs; GITHUB_TOKEN,
                                   HOMEBREW_TAP_TOKEN and the five MACOS_SIGN_* / MACOS_NOTARY_* secrets)
 .goreleaser.yaml                  release builds (CGO off; darwin/linux/windows × amd64/arm64; -X main.version), darwin
-                                  sign + notarize (quill, after build and before archiving; off in snapshots), archives,
-                                  checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency)
-cmd/figlet-font-preview/main.go   flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
+                                  sign + notarize (quill, after build and before archiving; off in snapshots), archives
+                                  (with man/ and completions/), checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency, manpage + bash/zsh/fish completion stanzas)
+cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
+man/figlet-font-preview.1         man(7) page: OPTIONS/FILES/KEYS mirror README's Usage, Fonts and Keys sections; a drift test in
+                                  cmd/figlet-font-preview/main_test.go checks every flag and font root appears. Edit with README
+completions/figlet-font-preview.{bash,zsh,fish}
+                                  static shell completions (flags + directories after --font-dir); the same drift test checks
+                                  each file names every flag. Brew links the zsh file as _figlet-font-preview
 internal/figfont/
   font.go          Parse/ParseFile: flf2a + tlf2a headers, zip-archived fonts, glyph table; THE font parser
   reader.go        byte-level line reader reproducing figlet's myfgets, header sscanf subset, C strtol (code tags)
