@@ -41,14 +41,15 @@ type optRow struct {
 func (r optRow) selectable() bool { return r.kind != optAxis && r.kind != optHeading }
 
 const (
-	styleWidth = 32 // Style pane content columns, excluding its divider
+	styleWidth = 32 // Style pane content columns, excluding its frame
 	slideStep  = 8  // columns the pane grows or shrinks per frame
 	slideEvery = 16 * time.Millisecond
 
 	minPreviewWidth = 10
-	fontsCols       = sidebarWidth + 1 // Fonts pane plus its divider
-	styleCols       = styleWidth + 1   // Style pane plus its divider
-	frameCols       = 2                // the preview's left padding and the free last column
+	fontsCols       = sidebarWidth + 2 // left column plus its borders
+	styleFrameCols  = 3                // Style pane's two borders and one column of right padding
+	styleCols       = styleWidth + styleFrameCols
+	frameCols       = 2 // the preview's left padding and the free last column
 	// bothFitWidth is the narrowest terminal that shows Fonts, the minimum
 	// preview and Style; styleFitWidth is the narrowest that shows Style and
 	// the minimum preview.
@@ -196,8 +197,6 @@ func (m Model) handleFiltersKey(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "esc":
 		return m, m.setFocus(focusList)
-	case "q":
-		return m, tea.Quit
 	}
 	m.rowKey(&m.filterCur, filterRows(), m.filterHeight(), key)
 	return m, nil
@@ -206,9 +205,7 @@ func (m Model) handleFiltersKey(key string) (tea.Model, tea.Cmd) {
 func (m Model) handleStyleKey(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "esc":
-		return m, m.toggleStyle()
-	case "q":
-		return m, tea.Quit
+		return m, m.focusFonts(focusList)
 	}
 	m.rowKey(&m.styleCur, styleRows(), m.styleHeight(), key)
 	return m, nil
@@ -294,20 +291,16 @@ func (m *Model) itemsChanged() {
 // styleHeight is the number of Style rows the pane shows.
 func (m Model) styleHeight() int { return max(m.bodyHeight()-2, 1) }
 
-// styleView renders the pane at its current (possibly sliding) width.
+// styleView renders the framed pane, cropped to the slide's current width.
 func (m Model) styleView() string {
-	title := styles.label.Render("Style")
-	if m.focus != focusStyle {
-		title = styles.header.Render("Style")
-	}
-	lines := []string{" " + title + styles.dim.Render("  ctrl+o"), styles.rule.Render(strings.Repeat("─", styleWidth))}
+	var lines []string
 	rows := styleRows()
 	end := min(m.styleCur.offset+m.styleHeight(), len(rows))
 	for i := m.styleCur.offset; i < end; i++ {
 		lines = append(lines, m.optionLine(rows[i], i == m.styleCur.cursor && m.focus == focusStyle, styleWidth))
 	}
-	return lipgloss.NewStyle().Width(m.panelW).MaxWidth(m.panelW).
-		Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(strings.Join(lines, "\n"))
+	pane := frame("Style", "ctrl+o", strings.Join(lines, "\n"), styleCols, m.styleHeight(), 0, 1, m.focus == focusStyle)
+	return lipgloss.NewStyle().MaxWidth(m.panelW + styleFrameCols).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(pane)
 }
 
 // optionLine renders a row for a pane width columns wide.

@@ -22,6 +22,7 @@ var pipelineFonts = []string{"Big", "big", "block", "slant", "smslant", "unparse
 
 func pipelineState() *State {
 	s := New(pipelineFonts, "hi")
+	s.Collapse = false // each test turns the option on when it needs it
 	s.SetIndex(fontclass.New([]fontclass.Input{
 		{Name: "Big", Root: 1, Profile: profile(1, 0, 1, 2, 0, 0.0)},
 		{Name: "big", Root: 0, Profile: profile(1, 0, 1, 2, 0, 0.0)},
@@ -47,6 +48,7 @@ func names(items []Item) []string {
 func TestOptionsOffMatchesPlainState(t *testing.T) {
 	s := pipelineState()
 	plain := New(pipelineFonts, "hi")
+	plain.Collapse = false
 	if !reflect.DeepEqual(s.Sidebar(), plain.Sidebar()) || !reflect.DeepEqual(s.RenderSet(), plain.RenderSet()) {
 		t.Fatal("an index with every option off must not change the output")
 	}

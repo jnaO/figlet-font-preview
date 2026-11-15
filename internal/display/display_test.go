@@ -82,6 +82,9 @@ func TestAlignApply(t *testing.T) {
 	if New(fonts, "").Align != AlignLeft {
 		t.Error("default should be left")
 	}
+	if !New(fonts, "").Collapse {
+		t.Error("Collapse should default to on")
+	}
 }
 
 func TestAlignString(t *testing.T) {

@@ -85,7 +85,7 @@ type State struct {
 
 // New returns a state over fonts (expected sorted) with the given text.
 func New(fonts []string, text string) *State {
-	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, GroupBy: NoGroup, Paint: paint.Default()}
+	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, Collapse: true, GroupBy: NoGroup, Paint: paint.Default()}
 }
 
 func (s *State) Query() string                         { return s.query }
