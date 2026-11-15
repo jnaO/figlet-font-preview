@@ -436,9 +436,7 @@ func (m Model) anchorFont() (string, bool) {
 // The cursor font is drawn in rainbow colours on a tinted background.
 func (m Model) previewContent() (string, map[string]span) {
 	if len(m.cat.Entries) == 0 {
-		return styles.dim.Render(fmt.Sprintf(
-			"No fonts found.\n\nSearched:\n  %s\n\nAdd more with --font-dir <dir>.",
-			strings.Join(m.cat.Roots, "\n  "))), nil
+		return styles.dim.Render(noFontsMessage(m.cat.Roots, runtime.GOOS)), nil
 	}
 	set := m.state.RenderSet()
 	if len(set) == 0 {
