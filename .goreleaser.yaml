@@ -51,10 +51,3 @@ homebrew_casks:
       owner: jnaO
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    hooks:
-      post:
-        # removes the quarantine bit macOS sets on the unsigned binary
-        install_steps: |
-          on_macos do
-            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/figlet-font-preview"]
-          end
