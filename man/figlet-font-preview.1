@@ -70,6 +70,37 @@ When Style has hidden the Fonts pane, Style closes first.
 .B ctrl+t
 Focus the filters, with the same rule.
 .TP
+.B ctrl+k
+Open the command palette: every action with its key, filtered as you type.
+.B up
+and
+.B down
+move,
+.B enter
+runs the action, and
+.B esc
+or
+.B ctrl+k
+closes it.
+Any other app key, such as
+.B ctrl+e
+or
+.BR ctrl+c ,
+closes the palette and does its job.
+.TP
+.B ?
+Open the help screen: every action with its key, the keys of each pane and the cursor and pick legend.
+It opens everywhere except the text and the search, where
+.B ?
+types a question mark.
+.BR up ", " down ", " j ", " k ", " pgup " and " pgdn
+scroll it, and
+.B esc
+or
+.B ?
+closes it.
+Other app keys close it and do their job.
+.TP
 .BR pgup ", " pgdn ", " ctrl+u ", " ctrl+d ", mouse wheel"
 Scroll the preview.
 .TP
@@ -139,7 +170,7 @@ Jump to the search.
 .B esc
 Clear the search.
 .SS Filters
-The filter checklist in the Fonts pane, between the search and the list.
+The filter checklist, in its own frame below the Fonts pane.
 .TP
 .BR up ", " down ", " j ", " k
 Move.

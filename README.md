@@ -72,6 +72,8 @@ The selection is kept while you search and when you clear the search. The previe
 | anywhere | `ctrl+e` | focus the text |
 | anywhere | `ctrl+f` | focus the search; with Fonts hidden behind Style, closes Style first |
 | anywhere | `ctrl+t` | focus the filters, with the same rule |
+| anywhere | `ctrl+k` | open the command palette: every action with its key, filtered as you type. `↑` / `↓` move, `enter` runs the action, `esc` or `ctrl+k` closes it; any other app key (such as `ctrl+e` or `ctrl+c`) closes it and does its job |
+| anywhere except text and search | `?` | open the help screen: every action with its key, the keys of each pane and the cursor/pick legend. `↑` / `↓`, `j` / `k`, `pgup` / `pgdn` scroll it, `esc` or `?` closes it; other app keys close it and do their job. In the text bar and the search box `?` types a question mark |
 | anywhere | `pgup` / `pgdn`, `ctrl+u` / `ctrl+d`, mouse wheel | scroll the preview |
 | anywhere | `ctrl+c` | quit (`esc` and `q` never quit) |
 | search | type | fuzzy-filter fonts |

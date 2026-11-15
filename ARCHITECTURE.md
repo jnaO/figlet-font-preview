@@ -8,13 +8,14 @@ Planning lives in GitHub issues on `jnaO/figlet-font-preview`: Stories carry the
 
 ```
 cmd/figlet-font-preview → tui → display → fontclass → catalog → figfont
-                       │           └──→ paint
+                       │   │       └──→ paint
+                       │   └──→ action
                        ├──→ catalog
                        ├──→ svgexport → paint
                        └──→ figfont (Trim, TrimBlock)
 ```
 
-Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly.
+Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport ./internal/action | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
 
 ## Map
 
@@ -49,6 +50,8 @@ internal/paint/paint.go
                    THE colour model: RGB, Rainbow.At(row, col) (lolcat formula), Background.At(x, y, w, h)
                    (theme → false; solid/linear/radial sampled at cell centres in box-normalised coordinates, the
                    same geometry as SVG objectBoundingBox gradients; LinearVector gives the SVG endpoints), Style
+internal/action/action.go
+                   THE action list: id, title, group, in menu order; no keys (each front-end binds its own)
 internal/svgexport/svg.go
                    Render(lines, top, left, style): one <tspan> per non-space rune at its own x, coloured
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
@@ -63,10 +66,18 @@ internal/tui/
                    fontsHidden: Fonts steps aside while Style is open or sliding and width < bothFitWidth (79 = Fonts + minPreviewWidth
                    preview + Style); previewWidth and View read it, nextFocus skips Fonts zones while hidden
   frame.go         frame(title, key, body, outer, height, padL, padR, focused): THE pane border (rounded, title and key in the top edge,
-                   dim unfocused, accent focused) used by the text bar, Fonts, Filters and Style (Style has one column of right padding: styleFrameCols = 3)
+                   dim unfocused, accent focused) used by the text bar, Fonts, Filters and Style (Style has one column of right padding: styleFrameCols = 3);
+                   overlay(bg, box, x, y): splices a box over the screen string with ansi.Truncate/TruncateLeft, keeping the colours around it
+  palette.go       ctrl+k command palette: paletteState (input, fuzzy rows over action.All() minus palette, cursor/offset), an accent-framed
+                   overlay on the first body row; its own keys first, any other globalKeys key closes it and runs (close before run)
+  help.go          ? help screen: helpState (bubbles viewport), Actions column from action.All() + binding().show, static paneKeys table,
+                   legend; two columns when they fit, else stacked; opens outside focusText/focusSearch (or from the palette)
   keys.go          globalKeys: THE app-wide key-to-action table (tab, ctrl+o/y/s/e/f/t/k, pgup/pgdn, ctrl+c); handleKey looks keys
                    up here before any zone code, which takes ctrl+e/f/t/k from the textarea and textinput; footerKeys builds the
-                   one footer from the same entries (whole entries, ctrl+c always last); ctrl+k is a no-op entry reserved for #62
+                   one footer from the entries that have a help label (whole entries, ctrl+c always last). keyEntry.action is the
+                   internal/action id (empty for navigation); zoneKeys holds the actions a zone handles itself (space, x, ?;
+                   no keys, so lookupKey skips them); binding(id) finds an action's entry; a test checks every action.All() id
+                   has one binding
   options.go       row vocabulary shared by both panes (optRow, optKind, rowCursor, applyOption, optionLine(row, cursor, width)):
                    filterRows (Fonts pane: Collapse, Group by, Similar to the cursor font, one row per facet value, Clear filters;
                    optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the

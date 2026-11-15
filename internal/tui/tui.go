@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jnaO/figlet-font-preview/internal/action"
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 )
@@ -50,6 +51,8 @@ type Model struct {
 	search  textinput.Model
 	preview viewport.Model
 	focus   focus
+	palette paletteState
+	help    helpState
 
 	items          []display.Item
 	cursor, offset int
@@ -168,6 +171,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	switch {
+	case m.palette.open:
+		m.palette.input, cmd = m.palette.input.Update(msg)
+		return m, cmd
+	}
 	switch m.focus {
 	case focusText:
 		m.text, cmd = m.text.Update(msg)
@@ -178,12 +186,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.palette.open {
+		return m.paletteKey(msg)
+	}
+	if m.help.open {
+		return m.helpKey(msg)
+	}
 	if e, ok := lookupKey(msg.String()); ok {
-		var cmd tea.Cmd
-		if e.run != nil {
-			cmd = e.run(&m, msg.String())
-		}
-		return m, cmd
+		return m, runEntry(&m, e, msg.String())
+	}
+	if msg.String() == "?" && m.focus != focusText && m.focus != focusSearch {
+		e, _ := binding(action.Help)
+		return m, runEntry(&m, e, "?")
 	}
 
 	switch m.focus {
@@ -246,8 +260,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case " ", "enter":
 			m.toggleCursor()
 		case "x":
-			m.state.ClearSelection()
-			m.refreshPreview(true)
+			m.clearPicks()
 		}
 	}
 	return m, nil
@@ -353,6 +366,11 @@ func (m *Model) toggleCursor() {
 	}
 	m.refreshPreview(true)
 	m.revealCursor()
+}
+
+func (m *Model) clearPicks() {
+	m.state.ClearSelection()
+	m.refreshPreview(true)
 }
 
 func (m *Model) scrollPreview(key string) {
@@ -555,7 +573,15 @@ func (m Model) View() string {
 		cols = append(cols, m.styleView())
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	screen := lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	if m.help.open {
+		box, w, h := m.helpView()
+		screen = overlay(screen, box, (m.width-w)/2, m.barHeight()+(m.bodyHeight()-h)/2)
+	}
+	if m.palette.open {
+		screen = overlay(screen, m.paletteView(), (m.width-m.paletteBox())/2, m.barHeight())
+	}
+	return screen
 }
 
 // sidebarView is the left column: the Fonts frame above the Filters frame.

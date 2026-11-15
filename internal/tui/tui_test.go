@@ -70,6 +70,10 @@ func key(m Model, keys ...string) Model {
 		switch k {
 		case "down":
 			msg = tea.KeyMsg{Type: tea.KeyDown}
+		case "up":
+			msg = tea.KeyMsg{Type: tea.KeyUp}
+		case "pgdown":
+			msg = tea.KeyMsg{Type: tea.KeyPgDown}
 		case "enter":
 			msg = tea.KeyMsg{Type: tea.KeyEnter}
 		case "tab":
@@ -735,7 +739,7 @@ func TestCtrlKeysDoNotEditText(t *testing.T) {
 		m := testModel(t, 3)
 		m.text.CursorStart()
 		m = key(m, k)
-		if m.text.Value() != "ab" || m.text.LineInfo().CharOffset != 0 {
+		if m.text.Value() != "ab" || m.text.LineInfo().CharOffset != 0 || m.palette.open != (k == "ctrl+k") {
 			t.Errorf("%s in the text bar: value %q, column %d", k, m.text.Value(), m.text.LineInfo().CharOffset)
 		}
 	}
@@ -743,8 +747,8 @@ func TestCtrlKeysDoNotEditText(t *testing.T) {
 	m.search.SetValue("abc")
 	m.search.SetCursor(0)
 	m = key(m, "tab", "ctrl+f", "ctrl+k")
-	if m.focus != focusSearch || m.search.Value() != "abc" || m.search.Position() != 0 {
-		t.Fatalf("search: focus %v value %q position %d", m.focus, m.search.Value(), m.search.Position())
+	if m.focus != focusSearch || m.search.Value() != "abc" || m.search.Position() != 0 || !m.palette.open {
+		t.Fatalf("search: focus %v value %q position %d palette %v", m.focus, m.search.Value(), m.search.Position(), m.palette.open)
 	}
 	if m = key(m, "ctrl+e"); m.focus != focusText {
 		t.Fatalf("ctrl+e from search = %v, want text", m.focus)
@@ -789,7 +793,7 @@ func TestFooterIsTheSameInEveryFocus(t *testing.T) {
 	}
 	m = resize(m, 80, 24)
 	got := m.footerView()
-	if want := "tab: pane · ctrl+o: style · ctrl+y: copy · ctrl+s: svg · ctrl+c: quit"; got != want {
+	if want := "ctrl+k: actions · tab: pane · ctrl+o: style · ctrl+y: copy · ctrl+c: quit"; got != want {
 		t.Fatalf("80-column footer %q, want %q", got, want)
 	}
 	if got := resize(m, 200, 24).footerView(); !strings.HasSuffix(got, "ctrl+c: quit") {
