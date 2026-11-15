@@ -10,14 +10,24 @@ It renders fonts itself, so the `figlet` program does not need to be installed. 
 go install github.com/jnaO/figlet-font-preview/cmd/figlet-font-preview@latest
 ```
 
-Fonts are read from these directories when present:
+### Fonts
+
+No fonts are bundled. They are read from these directories when present:
 
 - `/opt/homebrew/share/figlet`
 - `/usr/local/share/figlet`
 - `/usr/share/figlet`
 - `~/figlet-fonts`
 
-On macOS, `brew install figlet toilet` provides about 440 fonts. Fonts in different directories are listed separately even when they are the same font.
+Windows searches only `%USERPROFILE%\figlet-fonts` and `--font-dir`. Fonts in different directories are listed separately even when they are the same font.
+
+To get fonts:
+
+- macOS: `brew install figlet toilet` provides about 440 fonts.
+- Linux: install the `figlet` and `toilet` packages with your package manager.
+- Anywhere: put `.flf`/`.tlf` files in `~/figlet-fonts`, or point `--font-dir` at a folder of them.
+
+More fonts: [cmatsuoka/figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) and [cacalabs/toilet](https://github.com/cacalabs/toilet). Fonts are made by their own authors; this project is not affiliated with them.
 
 ## Usage
 

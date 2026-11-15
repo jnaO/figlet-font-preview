@@ -28,7 +28,7 @@ internal/figfont/
   golden_test.go   every installed font vs the figlet binary, unwrapped and wrapped; skips without figlet/fonts
   font_test.go     portable fixture tests (testdata/: tiny flf, zipped flf, 0x7F-hardblank tlf, RTL flf)
 internal/catalog/catalog.go
-                   SystemRoots (package-manager dirs; the only roots tests use), DefaultRoots() = SystemRoots + ~/figlet-fonts;
+                   SystemRoots (package-manager dirs, empty on Windows; the only roots tests use), DefaultRoots() = SystemRoots + ~/figlet-fonts;
                    Discover(roots): recursive walk following symlinks, *.flf/*.tlf only, dedupe by real path
                    (Entry.Root = index of the first root that reached the file),
                    unique names; Entry.Load (once, concurrent-safe), Entry.State/Font (non-blocking), Preload(workers)
@@ -59,6 +59,8 @@ internal/tui/
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → writeNew (O_EXCL, -2, -3 … suffixes)
                    in exportDir (a var tests replace); safeName for font names with '/'
+  nofonts.go       noFontsMessage: the empty-catalog preview (searched roots, per-GOOS install hint, fontSources
+                   links mirrored in README.md, disclaimer)
   lolcat.go        the cursor font's colouring from State.Paint: per-rune Rainbow, background flat (theme tint or From)
                    or per cell over preview width × block rows (linear/radial); bgStyle for its header row
   styles.go        all lipgloss styles (adaptive light/dark); tintColour + themeSeed (background sliders start at the tint)
