@@ -6,6 +6,18 @@ It renders fonts itself, so the `figlet` program does not need to be installed. 
 
 ## Install
 
+Homebrew (macOS; Linux is best effort):
+
+```sh
+brew install --cask jnaO/tap/figlet-font-preview
+```
+
+This also installs `figlet`, which brings its fonts.
+
+Prebuilt archives for macOS, Linux and Windows (amd64 and arm64) are on the [Releases](https://github.com/jnaO/figlet-font-preview/releases) page. Unpack one and put `figlet-font-preview` on your `PATH`.
+
+With Go 1.26 or newer:
+
 ```sh
 go install github.com/jnaO/figlet-font-preview/cmd/figlet-font-preview@latest
 ```
@@ -101,6 +113,10 @@ go test ./...
 ```
 
 The golden tests compare the renderer byte for byte with the real `figlet` for every installed font, and skip when `figlet` or the fonts are missing. See [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Releasing
+
+Push a `vX.Y.Z` tag. The release workflow runs GoReleaser (`.goreleaser.yaml`), which publishes the archives to GitHub Releases and the cask to `jnaO/homebrew-tap`.
 
 ## License
 
