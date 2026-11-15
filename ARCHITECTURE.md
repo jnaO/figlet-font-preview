@@ -19,7 +19,7 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
 ## Map
 
 ```
-cmd/figlet-font-preview/main.go   flags (--font-dir repeatable, --center, --version), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
+cmd/figlet-font-preview/main.go   flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
 internal/figfont/
   font.go          Parse/ParseFile: flf2a + tlf2a headers, zip-archived fonts, glyph table; THE font parser
   reader.go        byte-level line reader reproducing figlet's myfgets, header sscanf subset, C strtol (code tags)
