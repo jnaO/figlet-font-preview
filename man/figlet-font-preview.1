@@ -56,13 +56,16 @@ Print the usage text, including the default font roots, and exit.
 .SS Anywhere
 .TP
 .B tab\fR, \fBshift+tab
-Cycle focus: text, search, list.
+Cycle focus: text, search, filters, list, and the Style pane while it is open.
+While the Fonts pane is hidden, only the text and the Style pane take focus.
 .TP
 .BR pgup ", " pgdn ", " ctrl+u ", " ctrl+d ", mouse wheel"
 Scroll the preview.
 .TP
 .B ctrl+o
-Open or close the options pane.
+Show or hide the Style pane.
+Below 76 columns the Fonts pane steps aside while Style is open and returns when it closes.
+Below 45 columns Style does not open.
 .TP
 .B ctrl+y
 Copy the cursor font's render to the clipboard as plain text,
@@ -115,16 +118,33 @@ Clear the search.
 .TP
 .B q
 Quit.
-.SS Options pane
+.SS Filters
+The filter checklist in the Fonts pane, between the search and the list.
+.TP
+.BR up ", " down ", " j ", " k
+Move.
+.TP
+.BR space ", " enter ", " right ", " l
+Toggle the row, or step Group by forward.
+.TP
+.BR left ", " h
+Step Group by back.
+.TP
+.B esc
+Back to the list.
+.TP
+.B q
+Quit.
+.SS Style pane
 .TP
 .BR up ", " down ", " j ", " k
 Move.
 .TP
 .BR space ", " enter
-Toggle the row.
+Change the row.
 .TP
 .BR left ", " right ", " h ", " l
-Change Align, Group by, the background Mode, or a slider's value.
+Change Align, the background Mode, or a slider's value.
 .TP
 .B tab
 Back to the text, leaving the pane open.

@@ -67,7 +67,7 @@ The selection is kept while you search and when you clear the search. The previe
 | Where | Key | Action |
 |---|---|---|
 | text | type, `enter` | edit the text; `enter` starts a new line (the box grows to 5 rows, then scrolls) |
-| anywhere | `tab` / `shift+tab` | cycle focus: text → search → list |
+| anywhere | `tab` / `shift+tab` | cycle focus: text → search → filters → list, then Style while it is open |
 | anywhere | `pgup` / `pgdn`, `ctrl+u` / `ctrl+d`, mouse wheel | scroll the preview |
 | anywhere | `ctrl+c` | quit |
 | search | type | fuzzy-filter fonts |
@@ -79,25 +79,27 @@ The selection is kept while you search and when you clear the search. The previe
 | list | `x` | clear the selection |
 | list | `/` | jump to search |
 | list | `esc` | clear the search |
-| anywhere | `ctrl+o` | open or close the options pane |
+| anywhere | `ctrl+o` | show or hide the Style pane; below 76 columns the Fonts pane steps aside while it is open, and below 45 columns Style does not open |
 | anywhere | `ctrl+y` | copy the cursor font's render to the clipboard as plain text, wrapped and aligned as shown |
 | anywhere | `ctrl+s` | save the cursor font's render as a coloured `<font>.svg` in the current directory (never overwrites: adds `-2`, `-3`, …) |
 | list | `q` | quit |
-| options | `↑` / `↓`, `j` / `k` | move |
-| options | `space` / `enter` | toggle the row |
-| options | `←` / `→`, `h` / `l` | change Align, Group by, background Mode, or a slider's value |
-| options | `tab` | back to the text, leaving the pane open |
-| options | `esc` / `ctrl+o` | close the pane |
+| filters | `↑` / `↓`, `j` / `k` | move |
+| filters | `space` / `enter` / `→` / `l` | toggle the row, or step Group by forward |
+| filters | `←` / `h` | step Group by back |
+| filters | `esc` | back to the list |
+| filters | `q` | quit |
+| style | `↑` / `↓`, `j` / `k` | move |
+| style | `space` / `enter` | change the row |
+| style | `←` / `→`, `h` / `l` | change Align, background Mode, or a slider's value |
+| style | `tab` | back to the text, leaving the pane open |
+| style | `esc` / `ctrl+o` | close the pane |
 
-### Options panel
+### Fonts pane
 
-Press `ctrl+o` anywhere to slide the options pane in from the right. It has its own column, and changes apply immediately. `tab` moves between the text, search, list and pane.
+The left column holds the search, a scrolling checklist of filters, a count such as `412 of 768 fonts · 2 selected`, and the font list. Changes apply immediately, and `tab` moves between the text, search, filters, list and the Style pane while it is open.
 
-- **Align**: cycles left, center and right for the text in the preview; left is the default. `--center` or `--right` sets the starting value, and the last one given wins.
-- **Rainbow**: Seed, Spread and Frequency of the lolcat-style colouring of the highlighted font (defaults match `lolcat -S 20 -p 7 -F 0.05`).
-- **Background**: Mode cycles `theme` (the terminal-adaptive tint; transparent in SVG), `solid` (From), `linear` (From → To along Angle; 0° runs left to right, 90° top to bottom) and `radial` (From at the centre to To at the edges). From and To are RGB sliders with a swatch; rows the mode does not use are dimmed. SVG export uses the same colours.
 - **Collapse duplicates**: shows fonts that are identical (the same font in two folders) only once, with `+N` showing how many copies are hidden.
-- **Group by**: groups the font list by Stroke, Weight, Size or Slant. Press space on a group header to select or deselect the whole group.
+- **Group by**: groups the font list by Stroke, Weight, Size or Slant. Press `esc` to reach the list, then space on a group header to select or deselect the whole group.
 - **Similar to**: lists the font under the list cursor, followed by its closest look-alikes, most similar first.
 - **Filters**: every value of the four measured axes, with font counts. Within an axis, any checked value matches; across axes, all must match.
   - **Stroke**: what the letters are drawn with: line art (`/ \ | _`), solid fill (`# * @` or letters), block characters (`█`), box-drawing characters (`═ ║`), or other Unicode.
@@ -106,6 +108,14 @@ Press `ctrl+o` anywhere to slide the options pane in from the right. It has its 
   - **Slant**: upright or slanted.
 
 Selected fonts always stay visible, whatever is filtered or collapsed. Categories are measured from how each font renders, not from its name.
+
+### Style pane
+
+Press `ctrl+o` anywhere to slide the Style pane in from the right; it is closed at start. It has its own column, and changes apply immediately. On terminals narrower than 76 columns the Fonts pane steps aside while Style is open and returns when it closes; below 45 columns Style does not open.
+
+- **Align**: cycles left, center and right for the text in the preview; left is the default. `--center` or `--right` sets the starting value, and the last one given wins.
+- **Rainbow**: Seed, Spread and Frequency of the lolcat-style colouring of the highlighted font (defaults match `lolcat -S 20 -p 7 -F 0.05`).
+- **Background**: Mode cycles `theme` (the terminal-adaptive tint; transparent in SVG), `solid` (From), `linear` (From → To along Angle; 0° runs left to right, 90° top to bottom) and `radial` (From at the centre to To at the edges). From and To are RGB sliders with a swatch; rows the mode does not use are dimmed. SVG export uses the same colours.
 
 ## Development
 

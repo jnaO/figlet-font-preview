@@ -55,14 +55,16 @@ internal/svgexport/svg.go
 internal/display/display.go
                    State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
 internal/tui/
-  tui.go           Bubble Tea model: multiline text area (grows to maxTextLines rows), sidebar (search + list),
-                   preview viewport, footer help
-  options.go       options pane, a right-hand column toggled by global ctrl+o (toggleOptions; slides in/out via
-                   slideMsg, panelW feeds previewWidth): optionRows (the Align cycler, paintRows colour rows, Collapse, Group by,
-                   Similar to the cursor font, one row per facet value, Clear filters; optAxis/optHeading rows are
-                   not selectable), applyOption, itemsChanged (keeps the
-                   cursor font), buildIndex/indexMsg
-  paintopts.go     colour rows of the options pane: slider specs (range, step, wrap period, which background modes
+  tui.go           Bubble Tea model: framed, labelled text bar (textBar; grows to maxTextLines rows), Fonts pane (sidebarView:
+                   search, filter window, count, list; focusFilters sits between search and list), preview viewport, footer help.
+                   fontsHidden: Fonts steps aside while Style is open or sliding and width < bothFitWidth (76 = Fonts + minPreviewWidth
+                   preview + Style); previewWidth and View read it, nextFocus skips Fonts zones while hidden
+  options.go       row vocabulary shared by both panes (optRow, optKind, rowCursor, applyOption, optionLine(row, cursor, width)):
+                   filterRows (Fonts pane: Collapse, Group by, Similar to the cursor font, one row per facet value, Clear filters;
+                   optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the
+                   right-hand column toggled by global ctrl+o (toggleStyle; slides in/out via slideMsg, panelW feeds previewWidth;
+                   refused below styleFitWidth = 45), itemsChanged (keeps the cursor font), buildIndex/indexMsg
+  paintopts.go     colour rows of the Style pane: slider specs (range, step, wrap period, which background modes
                    enable them), stepSlider, slider/heading/mode line rendering
   copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
                    global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
@@ -84,7 +86,7 @@ internal/tui/
 - **Cursor font in the preview** (`tui.Model.revealCursor`, `revealOffset`): `previewContent` records each rendered font's line span; on cursor move, query change or toggle the preview scrolls the minimum needed to show the cursor font in full (its top when taller than the view), and never when it is already fully visible or not in the render set. The cursor font is drawn with `lolcat`.
 - **Preview anchor** (`tui.Model.refreshPreview`, `anchorFont`): every re-render that is not a reset keeps the anchor font (the cursor font if rendered, else the font at the top of the view) on the same screen row, so text edits, resizes and fonts finishing loading do not shift it.
 - **Text area sizing** (`tui.Model.handleKey`, `resetTextScroll`): the bubbles textarea scrolls its own view during `Update` from its current height, so it is updated at `maxTextLines` and then fitted; after lines are deleted its stale scroll offset is reset via `SetValue` with the cursor restored. Tests call `View()` after each update because bubbles components only learn their content size when rendered.
-- **Lazy loading**: the TUI calls `Catalog.Preload` at start and polls on a tick until the returned channel closes; preview entries show `loading…` or the parse error until ready. When loading finishes, `buildIndex` builds the `fontclass.Index` off the UI goroutine and `indexMsg` hands it to `display.State.SetIndex`; until then the options panel's index-backed rows show `analysing…` and do nothing. The full preview is re-rendered on every change.
+- **Lazy loading**: the TUI calls `Catalog.Preload` at start and polls on a tick until the returned channel closes; preview entries show `loading…` or the parse error until ready. When loading finishes, `buildIndex` builds the `fontclass.Index` off the UI goroutine and `indexMsg` hands it to `display.State.SetIndex`; until then the Fonts pane's filter rows show `analysing…` and do nothing. The full preview is re-rendered on every change.
 - **Colour in tests**: lipgloss emits no colour escapes under `go test` (no TTY profile); tests asserting colours call `trueColour(t)` in `tui_test.go`, which sets `termenv.TrueColor` and restores it.
 - **Sidebar headers** (`display.Item.IsHeader`): a header has no `Name`, so `cursorName()` is empty on it and the preview reveal/anchor ignore it; space on a header calls `ToggleGroup`.
 
