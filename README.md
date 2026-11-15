@@ -12,7 +12,7 @@ Homebrew (macOS; Linux is best effort):
 brew install --cask jnaO/tap/figlet-font-preview
 ```
 
-This also installs `figlet`, which brings its fonts.
+This also installs `figlet`, which brings its fonts. From v0.1.1 the macOS binaries are signed and notarized by Apple.
 
 Prebuilt archives for macOS, Linux and Windows (amd64 and arm64) are on the [Releases](https://github.com/jnaO/figlet-font-preview/releases) page. Unpack one and put `figlet-font-preview` on your `PATH`.
 
@@ -116,7 +116,7 @@ The golden tests compare the renderer byte for byte with the real `figlet` for e
 
 ### Releasing
 
-Push a `vX.Y.Z` tag. The release workflow runs GoReleaser (`.goreleaser.yaml`), which publishes the archives to GitHub Releases and the cask to `jnaO/homebrew-tap`.
+Push a `vX.Y.Z` tag. The release workflow runs GoReleaser (`.goreleaser.yaml`), which publishes the archives to GitHub Releases and the cask to `jnaO/homebrew-tap`. It signs and notarizes the darwin binaries using the `MACOS_*` repo secrets; a run missing them fails before publishing anything.
 
 ## License
 
