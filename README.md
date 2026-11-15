@@ -12,9 +12,9 @@ Homebrew (macOS; Linux is best effort):
 brew install --cask jnaO/tap/figlet-font-preview
 ```
 
-This also installs `figlet`, which brings its fonts. From v0.1.1 the macOS binaries are signed and notarized by Apple.
+This also installs `figlet`, which brings its fonts, the `figlet-font-preview(1)` man page, and bash, zsh and fish completions. If tab completion does not work, see Homebrew's [shell completion setup](https://docs.brew.sh/Shell-Completion). From v0.1.1 the macOS binaries are signed and notarized by Apple.
 
-Prebuilt archives for macOS, Linux and Windows (amd64 and arm64) are on the [Releases](https://github.com/jnaO/figlet-font-preview/releases) page. Unpack one and put `figlet-font-preview` on your `PATH`.
+Prebuilt archives for macOS, Linux and Windows (amd64 and arm64) are on the [Releases](https://github.com/jnaO/figlet-font-preview/releases) page. Unpack one and put `figlet-font-preview` on your `PATH`. The archives also carry the man page under `man/` and the completions under `completions/`.
 
 With Go 1.26 or newer:
 
