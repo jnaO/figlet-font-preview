@@ -19,6 +19,8 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
 ## Map
 
 ```
+.github/workflows/release.yml     on v* tag push: go test, then goreleaser release (actions pinned to SHAs; GITHUB_TOKEN +
+                                  HOMEBREW_TAP_TOKEN secrets)
 .goreleaser.yaml                  release builds (CGO off; darwin/linux/windows × amd64/arm64; -X main.version), archives,
                                   checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency)
 cmd/figlet-font-preview/main.go   flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
