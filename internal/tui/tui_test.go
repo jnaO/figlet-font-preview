@@ -99,7 +99,7 @@ func screenRow(m Model, name string) int { return m.spans[name].start - m.previe
 
 func TestCursorFontKeepsRowWhenTextChanges(t *testing.T) {
 	m := testModel(t, 30)
-	m = key(m, "tab", "tab")
+	m = key(m, "tab", "tab", "tab")
 	for range 12 {
 		m = key(m, "down")
 	}
@@ -130,16 +130,16 @@ func settle(m Model) Model {
 	return m
 }
 
-func TestOptionsPaneFromAnyFocus(t *testing.T) {
+func TestStylePaneFromAnyFocus(t *testing.T) {
 	next, _ := testModel(t, 3).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m := next.(Model)
 	full := m.previewWidth()
 	m = settle(key(m, "ctrl+o")) // from the text area
-	if !m.panelOpen || m.focus != focusOptions || m.panelW != optionsWidth {
+	if !m.panelOpen || m.focus != focusStyle || m.panelW != styleWidth {
 		t.Fatalf("open=%v focus=%v width=%d", m.panelOpen, m.focus, m.panelW)
 	}
-	if m.previewWidth() != full-optionsWidth-1 {
-		t.Fatalf("preview width %d, want %d", m.previewWidth(), full-optionsWidth-1)
+	if m.previewWidth() != full-styleWidth-1 {
+		t.Fatalf("preview width %d, want %d", m.previewWidth(), full-styleWidth-1)
 	}
 	m = settle(key(m, "ctrl+o"))
 	if m.panelOpen || m.focus != focusText || m.panelW != 0 {
@@ -155,9 +155,9 @@ func TestOptionsPaneFromAnyFocus(t *testing.T) {
 	}
 }
 
-func TestOptionsAlignCycler(t *testing.T) {
+func TestStyleAlignCycler(t *testing.T) {
 	m := key(testModel(t, 3), "ctrl+o") // first row is Align
-	if !strings.Contains(m.optionsView(), "‹ left ›") {
+	if !strings.Contains(m.styleView(), "‹ left ›") {
 		t.Fatal("Align row should read ‹ left ›")
 	}
 	for _, step := range []struct {
@@ -169,17 +169,25 @@ func TestOptionsAlignCycler(t *testing.T) {
 			t.Fatalf("after %q: Align = %v, want %v", step.k, m.state.Align, step.want)
 		}
 	}
-	if !strings.Contains(m.optionsView(), "‹ right ›") {
+	if !strings.Contains(m.styleView(), "‹ right ›") {
 		t.Fatal("Align row should read ‹ right ›")
 	}
 }
 
-// toOption moves the open pane's cursor onto the first row of kind k.
+// toOption moves the matching pane's cursor onto the first row of kind k and focuses it.
 func toOption(t *testing.T, m Model, k optKind) Model {
 	t.Helper()
-	for i, r := range optionRows() {
+	for i, r := range filterRows() {
 		if r.kind == k {
-			m.optCursor = i
+			m.filterCur.cursor = i
+			m.setFocus(focusFilters)
+			return m
+		}
+	}
+	for i, r := range styleRows() {
+		if r.kind == k {
+			m.styleCur.cursor = i
+			m.setFocus(focusStyle)
 			return m
 		}
 	}
@@ -188,7 +196,7 @@ func toOption(t *testing.T, m Model, k optKind) Model {
 }
 
 func TestOptionsInertBeforeIndex(t *testing.T) {
-	m := toOption(t, key(testModel(t, 3), "ctrl+o"), optFacet)
+	m := toOption(t, testModel(t, 3), optFacet)
 	m = key(m, "space")
 	if m.state.HasFilters() || m.state.Collapse {
 		t.Fatal("options must do nothing before the index arrives")
@@ -197,8 +205,8 @@ func TestOptionsInertBeforeIndex(t *testing.T) {
 
 func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 	m := withIndex(testModel(t, 5))
-	m = key(m, "tab", "tab", "down", "down") // cursor on f02
-	m = key(toOption(t, key(m, "ctrl+o"), optSimilar), "space")
+	m = key(m, "tab", "tab", "tab", "down", "down") // cursor on f02
+	m = key(toOption(t, m, optSimilar), "space")
 	if m.state.Similar() != "f02" {
 		t.Fatalf("similar = %q, want f02", m.state.Similar())
 	}
@@ -212,7 +220,7 @@ func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 
 func TestGroupedSidebarHeaders(t *testing.T) {
 	m := withIndex(testModel(t, 4))
-	m = key(toOption(t, key(m, "tab", "tab", "ctrl+o"), optGroupBy), "right", "esc") // Group by → Stroke
+	m = key(toOption(t, m, optGroupBy), "right", "esc") // Group by → Stroke, esc → list
 	if m.state.GroupBy != fontclass.Stroke || !m.items[0].IsHeader() {
 		t.Fatalf("expected a Stroke header first, got %+v", m.items[0])
 	}
@@ -336,14 +344,26 @@ func TestSlidersWrapClampAndRespectMode(t *testing.T) {
 	}
 }
 
-func TestOptionRowsFitThePane(t *testing.T) {
+func TestRowsFitTheirPane(t *testing.T) {
 	m := withIndex(testModel(t, 2))
 	for _, mode := range []paint.Mode{paint.Theme, paint.Linear} {
 		m.state.Paint.Background.Mode = mode
-		for i, r := range optionRows() {
-			if w := lipgloss.Width(m.optionLine(r, true)); w > optionsWidth {
-				t.Errorf("row %d (%v mode) is %d columns, pane is %d", i, mode, w, optionsWidth)
+		for _, p := range []struct {
+			name  string
+			rows  []optRow
+			width int
+		}{{"filter", filterRows(), sidebarWidth}, {"style", styleRows(), styleWidth}} {
+			for i, r := range p.rows {
+				if w := lipgloss.Width(m.optionLine(r, true, p.width)); w > p.width {
+					t.Errorf("%s row %d (%v mode) is %d columns, pane is %d", p.name, i, mode, w, p.width)
+				}
 			}
+		}
+	}
+	m.state.SetSimilar("f01")
+	for _, r := range filterRows() {
+		if r.kind == optSimilar && lipgloss.Width(m.optionLine(r, true, sidebarWidth)) > sidebarWidth {
+			t.Error("Similar row overflows the Fonts pane")
 		}
 	}
 }
@@ -379,4 +399,213 @@ func TestSafeName(t *testing.T) {
 	if got := safeName(`C64-fonts/gothic:a*b?"<>|\\x`); got != "C64-fonts_gothic_a_b_______x" {
 		t.Fatalf("safeName = %q", got)
 	}
+}
+
+func TestTextBarIsFramedAndLabelled(t *testing.T) {
+	for _, text := range []string{"ab", "ab\ncd"} {
+		m := testModel(t, 3)
+		m.text.SetValue(text)
+		m.state.Text = text
+		m = key(m, "x")
+		m.View()
+		v := m.View()
+		if h := lipgloss.Height(v); h != 20 {
+			t.Fatalf("%q: View is %d lines, want 20", text, h)
+		}
+		lines := strings.Split(v, "\n")
+		if !strings.Contains(lines[0], "Text") {
+			t.Fatalf("%q: first line %q lacks the Text label", text, lines[0])
+		}
+		for i, l := range lines {
+			if w := lipgloss.Width(l); w > 59 {
+				t.Fatalf("%q: line %d is %d columns, want at most 59", text, i, w)
+			}
+		}
+	}
+}
+
+func TestFontsPaneFillsTheBody(t *testing.T) {
+	for _, h := range []int{12, 20, 40} {
+		for _, indexed := range []bool{false, true} {
+			m := testModel(t, 30)
+			if indexed {
+				m = withIndex(m)
+			}
+			next, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: h})
+			m = next.(Model)
+			if got := lipgloss.Height(m.sidebarView()); got != m.bodyHeight() {
+				t.Errorf("height %d indexed=%v: pane is %d rows, body is %d", h, indexed, got, m.bodyHeight())
+			}
+		}
+	}
+	m := testModel(t, 3)
+	if v := m.sidebarView(); !strings.Contains(v, "analysing…") || !strings.Contains(v, "3 of 3 fonts · 0 selected") {
+		t.Fatalf("Fonts pane before the index lacks analysing… or the count:\n%s", v)
+	}
+}
+
+func TestClearFiltersScrollsIntoTheFilterWindow(t *testing.T) {
+	m := withIndex(testModel(t, 3))
+	if m.filterHeight() >= len(filterRows()) {
+		t.Fatal("test needs a filter window shorter than the checklist")
+	}
+	m = toOption(t, m, optCollapse)
+	for range len(filterRows()) {
+		m = key(m, "j")
+	}
+	if r := filterRows()[m.filterCur.cursor]; r.kind != optClear {
+		t.Fatalf("cursor on kind %d, want Clear filters", r.kind)
+	}
+	if !strings.Contains(m.sidebarView(), "Clear filters") {
+		t.Fatalf("Clear filters not scrolled into view:\n%s", m.sidebarView())
+	}
+}
+
+func TestFiltersZoneInTabCycle(t *testing.T) {
+	m := testModel(t, 3)
+	m = key(m, "tab", "tab")
+	if m.focus != focusFilters {
+		t.Fatalf("focus = %v, want filters", m.focus)
+	}
+	if m = key(m, "esc"); m.focus != focusList {
+		t.Fatalf("esc should reach the list, focus = %v", m.focus)
+	}
+	if m = key(m, "shift+tab"); m.focus != focusFilters {
+		t.Fatalf("shift+tab from list, focus = %v", m.focus)
+	}
+}
+
+func resize(m Model, w, h int) Model {
+	next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	return next.(Model)
+}
+
+func assertFits(t *testing.T, m Model, h int) {
+	t.Helper()
+	v := m.View()
+	if got := lipgloss.Height(v); got != h {
+		t.Errorf("width %d: View is %d lines, want %d", m.width, got, h)
+	}
+	for i, l := range strings.Split(v, "\n") {
+		if w := lipgloss.Width(l); w >= m.width {
+			t.Errorf("width %d: line %d is %d columns", m.width, i, w)
+		}
+	}
+}
+
+func TestFitThresholds(t *testing.T) {
+	if bothFitWidth != 76 || styleFitWidth != 45 {
+		t.Fatalf("thresholds %d and %d, docs say 76 and 45", bothFitWidth, styleFitWidth)
+	}
+	for w, hidden := range map[int]bool{76: false, 75: true} {
+		m := key(resize(testModel(t, 3), w, 24), "ctrl+o")
+		if m.fontsHidden() != hidden {
+			t.Errorf("width %d: fontsHidden = %v, want %v", w, m.fontsHidden(), hidden)
+		}
+	}
+	if m := key(resize(testModel(t, 3), 45, 24), "ctrl+o"); !m.panelOpen {
+		t.Error("Style should open at 45 columns")
+	}
+}
+
+func TestFontsStayBesideStyleWhenTheyFit(t *testing.T) {
+	m := resize(testModel(t, 3), 100, 24)
+	m = settle(key(m, "ctrl+o"))
+	if m.fontsHidden() || !strings.Contains(m.View(), "fuzzy search") {
+		t.Fatal("Fonts should stay at 100 columns")
+	}
+	assertFits(t, m, 24)
+}
+
+func TestFontsStepAsideBelowSeventySix(t *testing.T) {
+	m := resize(testModel(t, 3), 75, 24)
+	m = key(m, "tab", "ctrl+o")
+	if !m.fontsHidden() || m.focus != focusStyle {
+		t.Fatalf("hidden=%v focus=%v", m.fontsHidden(), m.focus)
+	}
+	if want := "Fonts hidden to fit Style · ctrl+o brings them back"; m.status != want {
+		t.Fatalf("status %q", m.status)
+	}
+	m = settle(m)
+	if strings.Contains(m.View(), "fuzzy search") {
+		t.Fatal("Fonts should be hidden")
+	}
+	if m.previewWidth() != 75-frameCols-styleCols {
+		t.Fatalf("preview width %d", m.previewWidth())
+	}
+	assertFits(t, m, 24)
+	if m = key(m, "tab"); m.focus != focusText {
+		t.Fatalf("tab from Style = %v, want text", m.focus)
+	}
+	if m = key(m, "tab"); m.focus != focusStyle {
+		t.Fatalf("tab from text = %v, want Style (Fonts skipped)", m.focus)
+	}
+	if m = key(m, "shift+tab"); m.focus != focusText {
+		t.Fatalf("shift+tab = %v, want text", m.focus)
+	}
+}
+
+func TestFontsReturnAfterTheSlideOut(t *testing.T) {
+	m := resize(testModel(t, 3), 75, 24)
+	m = settle(key(m, "tab", "ctrl+o"))
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
+	m = next.(Model)
+	if !m.fontsHidden() {
+		t.Fatal("Fonts must stay hidden while Style slides out")
+	}
+	for range 10 {
+		assertFits(t, m, 24)
+		next, _ := m.Update(slideMsg{})
+		m = next.(Model)
+	}
+	if m.fontsHidden() || m.focus != focusSearch || !strings.Contains(m.View(), "fuzzy search") {
+		t.Fatalf("hidden=%v focus=%v", m.fontsHidden(), m.focus)
+	}
+	assertFits(t, m, 24)
+}
+
+func TestResizeHidesAndRestoresFonts(t *testing.T) {
+	m := resize(testModel(t, 3), 100, 24)
+	m = settle(key(m, "tab", "tab", "tab", "ctrl+o", "tab", "tab", "tab", "tab")) // Style open, focus on the list
+	if m.focus != focusList {
+		t.Fatalf("focus = %v, want list", m.focus)
+	}
+	m = resize(m, 70, 24)
+	if !m.fontsHidden() || m.focus != focusStyle {
+		t.Fatalf("hidden=%v focus=%v", m.fontsHidden(), m.focus)
+	}
+	assertFits(t, m, 24)
+	if m = resize(m, 100, 24); m.fontsHidden() || !strings.Contains(m.View(), "fuzzy search") {
+		t.Fatal("Fonts should return at 100 columns")
+	}
+	assertFits(t, m, 24)
+}
+
+func TestStyleRefusedWhenItCannotFit(t *testing.T) {
+	m := resize(testModel(t, 3), 44, 24)
+	m = key(m, "ctrl+o")
+	if m.panelOpen || m.status != "Style needs 45 columns" || m.focus != focusText {
+		t.Fatalf("open=%v status=%q focus=%v", m.panelOpen, m.status, m.focus)
+	}
+	m = resize(testModel(t, 3), 80, 24)
+	m = settle(key(m, "ctrl+o"))
+	if m = resize(m, 44, 24); m.panelOpen {
+		t.Fatal("a resize below 45 should close Style")
+	}
+	m = settle(m)
+	if m.fontsHidden() {
+		t.Fatal("with Style closed Fonts never hides")
+	}
+}
+
+func TestEightyColumnsKeepsFontsAndNarrowPreview(t *testing.T) {
+	m := resize(testModel(t, 3), 80, 24)
+	if m.previewWidth() != 47 {
+		t.Fatalf("closed preview width %d, want 47", m.previewWidth())
+	}
+	m = settle(key(m, "ctrl+o"))
+	if m.previewWidth() != 14 || m.fontsHidden() {
+		t.Fatalf("open preview width %d hidden=%v, want 14 and visible", m.previewWidth(), m.fontsHidden())
+	}
+	assertFits(t, m, 24)
 }

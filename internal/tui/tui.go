@@ -20,7 +20,6 @@ import (
 const (
 	sidebarWidth = 30 // content columns, excluding the divider
 	maxTextLines = 5  // the text area grows up to this many rows, then scrolls
-	textPrompt   = "Text › "
 	tickEvery    = 100 * time.Millisecond
 )
 
@@ -29,8 +28,9 @@ type focus int
 const (
 	focusText focus = iota
 	focusSearch
+	focusFilters
 	focusList
-	focusOptions // only while the options pane is open
+	focusStyle // only while the Style pane is open
 )
 
 type tickMsg struct{}
@@ -54,10 +54,11 @@ type Model struct {
 	cursor, offset int
 	spans          map[string]span // preview line range of each rendered font
 
-	panelOpen            bool  // the options pane is open (or sliding in)
-	panelW               int   // the pane's current width while sliding
-	prevFocus            focus // focus to return to when the pane closes
-	optCursor, optOffset int
+	panelOpen bool  // the Style pane is open (or sliding in)
+	panelW    int   // the pane's current width while sliding
+	prevFocus focus // focus to return to when the pane closes
+
+	filterCur, styleCur rowCursor
 
 	status   string // transient footer message
 	statusID int
@@ -72,12 +73,7 @@ func New(cat *catalog.Catalog, text string, align display.Align) Model {
 	ti.ShowLineNumbers = false
 	ti.EndOfBufferCharacter = ' '
 	ti.CharLimit = 0
-	ti.SetPromptFunc(lipgloss.Width(textPrompt), func(line int) string {
-		if line == 0 {
-			return textPrompt
-		}
-		return strings.Repeat(" ", lipgloss.Width(textPrompt)-2) + "┆ "
-	})
+	ti.Prompt = ""
 	for _, st := range []*textarea.Style{&ti.FocusedStyle, &ti.BlurredStyle} {
 		st.CursorLine = lipgloss.NewStyle()
 		st.Prompt = styles.label
@@ -118,9 +114,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height, m.ready = msg.Width, msg.Height, true
+		var cmd tea.Cmd
+		switch {
+		case m.panelOpen && m.width < styleFitWidth:
+			cmd = m.toggleStyle()
+		case m.panelOpen && m.fontsHidden() && m.focus != focusText:
+			cmd = m.setFocus(focusStyle)
+		}
 		m.layout()
 		m.refreshPreview(false)
-		return m, nil
+		return m, cmd
 
 	case tickMsg:
 		select {
@@ -178,7 +181,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "ctrl+o":
-		return m, m.toggleOptions()
+		return m, m.toggleStyle()
 	case "ctrl+y":
 		return m, m.copyCursor()
 	case "ctrl+s":
@@ -230,8 +233,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyQuery()
 		return m, cmd
 
-	case focusOptions:
-		return m.handlePanelKey(msg.String())
+	case focusFilters:
+		return m.handleFiltersKey(msg.String())
+
+	case focusStyle:
+		return m.handleStyleKey(msg.String())
 
 	case focusList:
 		switch msg.String() {
@@ -254,13 +260,28 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// nextFocus cycles text → search → list (→ options while open).
+// nextFocus cycles text → search → filters → list (→ Style while open),
+// skipping the Fonts zones while the Fonts pane is hidden.
 func (m Model) nextFocus(d int) focus {
-	n := int(focusList) + 1
-	if m.panelOpen {
-		n++
+	const n = int(focusStyle) + 1
+	f := m.focus
+	for range n {
+		f = focus((int(f) + d + n) % n)
+		if m.focusVisible(f) {
+			return f
+		}
 	}
-	return focus((int(m.focus) + d + n) % n)
+	return m.focus
+}
+
+func (m Model) focusVisible(f focus) bool {
+	switch f {
+	case focusStyle:
+		return m.panelOpen
+	case focusSearch, focusFilters, focusList:
+		return !m.fontsHidden()
+	}
+	return true
 }
 
 func (m *Model) setFocus(f focus) tea.Cmd {
@@ -272,6 +293,8 @@ func (m *Model) setFocus(f focus) tea.Cmd {
 		return m.text.Focus()
 	case focusSearch:
 		return m.search.Focus()
+	case focusFilters:
+		m.filterCur.move(filterRows(), 0, m.filterHeight())
 	}
 	return nil
 }
@@ -344,13 +367,15 @@ func (m *Model) scrollPreview(key string) {
 	}
 }
 
-// Layout: text area (1..maxTextLines rows), body (sidebar | preview), footer.
+// Layout: text bar (1..maxTextLines rows), body (Fonts | preview | Style), footer.
 func (m *Model) layout() {
-	m.text.SetWidth(max(m.width-1, 1))
+	m.text.SetWidth(max(m.barWidth()-4, 1))
 	m.text.SetHeight(m.textHeight())
 	m.search.Width = sidebarWidth - lipgloss.Width(m.search.Prompt) - 1
 	m.preview.Width = m.previewWidth()
 	m.preview.Height = m.bodyHeight()
+	m.filterCur.move(filterRows(), 0, m.filterHeight())
+	m.styleCur.move(styleRows(), 0, m.styleHeight())
 	m.clampOffset()
 }
 
@@ -370,18 +395,47 @@ func (m *Model) resetTextScroll() {
 
 func (m Model) textHeight() int { return max(1, min(m.text.LineCount(), maxTextLines)) }
 
-func (m Model) bodyHeight() int { return max(m.height-m.textHeight()-1, 1) }
+// barWidth is the text bar's outer width; the last terminal column stays free.
+func (m Model) barWidth() int { return max(m.width-1, 5) }
+
+// barHeight is the text rows plus the frame's top and bottom edges.
+func (m Model) barHeight() int { return m.textHeight() + 2 }
+
+func (m Model) bodyHeight() int { return max(m.height-m.barHeight()-1, 1) }
+
+// textBar frames the text area. lipgloss has no border-title API, so the top
+// edge is built by hand.
+func (m Model) textBar() string {
+	border, label := styles.divider, styles.header
+	if m.focus == focusText {
+		border, label = styles.label, styles.label
+	}
+	w := m.barWidth()
+	top := border.Render("╭─ ") + label.Render("Text") + border.Render(" "+strings.Repeat("─", max(w-9, 0))+"╮")
+	frame := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderTop(false).
+		BorderForeground(border.GetForeground()).Padding(0, 1).Width(w - 2)
+	return top + "\n" + frame.Render(m.text.View())
+}
 
 func (m Model) previewWidth() int {
-	w := m.width - sidebarWidth - 3
+	w := m.width - frameCols
+	if !m.fontsHidden() {
+		w -= fontsCols
+	}
 	if m.panelW > 0 {
 		w -= m.panelW + 1 // pane plus its divider
 	}
 	return max(w, 1)
 }
 
-// listHeight is the number of font rows the sidebar shows.
-func (m Model) listHeight() int { return max(m.bodyHeight()-3, 1) }
+// filterHeight is the number of filter rows the Fonts pane shows.
+func (m Model) filterHeight() int {
+	return min(max(m.bodyHeight()/3, 3), len(filterRows()))
+}
+
+// listHeight is the number of font rows the Fonts pane shows: its search,
+// two rules, filter window and count take the rest.
+func (m Model) listHeight() int { return max(m.bodyHeight()-m.filterHeight()-4, 1) }
 
 func (m *Model) clampOffset() {
 	h := m.listHeight()
@@ -498,26 +552,29 @@ func (m Model) View() string {
 	if !m.ready {
 		return ""
 	}
-	header := m.text.View()
+	header := m.textBar()
 	divider := styles.divider.Render(strings.Repeat("│\n", m.bodyHeight()-1) + "│")
-	cols := []string{
-		m.sidebarView(),
-		divider,
-		lipgloss.NewStyle().PaddingLeft(1).Width(m.previewWidth() + 1).Render(m.preview.View()),
+	var cols []string
+	if !m.fontsHidden() {
+		cols = append(cols, m.sidebarView(), divider)
 	}
+	cols = append(cols, lipgloss.NewStyle().PaddingLeft(1).Width(m.previewWidth()+1).Render(m.preview.View()))
 	if m.panelW > 0 {
-		cols = append(cols, divider, m.optionsView())
+		cols = append(cols, divider, m.styleView())
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
 }
 
+// sidebarView is the Fonts pane: search, filter window, count and font list.
 func (m Model) sidebarView() string {
-	lines := []string{
-		m.search.View(),
-		styles.dim.Render(m.countLine()),
-		styles.rule.Render(strings.Repeat("─", sidebarWidth)),
+	rule := styles.rule.Render(strings.Repeat("─", sidebarWidth))
+	lines := []string{m.search.View(), rule}
+	rows := filterRows()
+	for i := m.filterCur.offset; i < min(m.filterCur.offset+m.filterHeight(), len(rows)); i++ {
+		lines = append(lines, m.optionLine(rows[i], i == m.filterCur.cursor && m.focus == focusFilters, sidebarWidth))
 	}
+	lines = append(lines, rule, styles.dim.Render(m.countLine()))
 	end := min(m.offset+m.listHeight(), len(m.items))
 	for i := m.offset; i < end; i++ {
 		lines = append(lines, m.itemView(i))
@@ -533,7 +590,7 @@ func (m Model) countLine() string {
 			n++
 		}
 	}
-	s := fmt.Sprintf("%d/%d fonts · %d selected", n, len(m.cat.Entries), m.state.SelectedCount())
+	s := fmt.Sprintf("%d of %d fonts · %d selected", n, len(m.cat.Entries), m.state.SelectedCount())
 	if m.loading {
 		s += " · loading"
 	}
@@ -563,7 +620,7 @@ func (m Model) itemView(i int) string {
 	}
 	if i == m.cursor {
 		cur := styles.cursor
-		if m.focus == focusText {
+		if m.focus != focusSearch && m.focus != focusList {
 			cur = styles.cursorInactive
 		}
 		return cur.Render("›") + " " + row
@@ -572,21 +629,30 @@ func (m Model) itemView(i int) string {
 }
 
 func (m Model) footerView() string {
+	next, after := "search", "text"
+	if m.fontsHidden() {
+		next = "style"
+	}
+	if m.panelOpen {
+		after = "style"
+	}
 	var keys string
 	switch m.focus {
 	case focusText:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type text · enter: new line · tab: search · pgup/pgdn: scroll · ctrl+c: quit"
+		keys = "ctrl+o: style · ctrl+y: copy · ctrl+s: svg · type text · enter: new line · tab: " + next + " · pgup/pgdn: scroll · ctrl+c: quit"
 	case focusSearch:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type to filter · ↑/↓: move · enter: select · esc: clear · tab: list"
+		keys = "ctrl+o: style · ctrl+y: copy · ctrl+s: svg · type to filter · ↑/↓: move · enter: select · esc: clear · tab: filters"
+	case focusFilters:
+		keys = "ctrl+o: style · ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: toggle · ←/→: group by · esc: list · tab: list · q: quit"
 	case focusList:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: select · x: clear selection · /: search · tab: text · q: quit"
-	case focusOptions:
-		keys = "ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: toggle · ←/→: group by · tab: text · esc/ctrl+o: close options"
+		keys = "ctrl+o: style · ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: select · x: clear selection · /: search · tab: " + after + " · q: quit"
+	case focusStyle:
+		keys = "ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: toggle · ←/→: change · tab: text · esc/ctrl+o: close style"
 	}
 	if m.status != "" {
-		return styles.label.Render(truncate(m.status, m.width))
+		return styles.label.Render(truncate(m.status, m.width-1))
 	}
-	return styles.dim.Render(truncate(keys, m.width))
+	return styles.dim.Render(truncate(keys, m.width-1))
 }
 
 // highlight styles the runes of s at the matched indexes.
