@@ -8,11 +8,13 @@ Planning lives in GitHub issues on `jnaO/figlet-font-preview`: Stories carry the
 
 ```
 cmd/figlet-font-preview → tui → display → fontclass → catalog → figfont
+                       │           └──→ paint
                        ├──→ catalog
-                       └──→ figfont (Center, Trim)
+                       ├──→ svgexport → paint
+                       └──→ figfont (Center, Trim, TrimBlock)
 ```
 
-Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly.
+Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly.
 
 ## Map
 
@@ -33,19 +35,33 @@ internal/catalog/catalog.go
 internal/fontclass/
   analyze.go       Analyze(font) Profile: Stroke/Weight/Size/Slant from fixed probes; Axes() is THE axis list
   index.go         Index: duplicate groups + representative, facet values, Similar(name) by fingerprint
+internal/paint/paint.go
+                   THE colour model: RGB, Rainbow.At(row, col) (lolcat formula), Background.At(x, y, w, h)
+                   (theme → false; solid/linear/radial sampled at cell centres in box-normalised coordinates, the
+                   same geometry as SVG objectBoundingBox gradients; LinearVector gives the SVG endpoints), Style
+internal/svgexport/svg.go
+                   Render(lines, top, left, style): one <tspan> per non-space rune at its own x, coloured
+                   Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
 internal/display/display.go
-                   State: text, Center, query, selection; Sidebar() and RenderSet(); THE render-set rule
+                   State: text, Center, Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
 internal/tui/
   tui.go           Bubble Tea model: multiline text area (grows to maxTextLines rows), sidebar (search + list),
                    preview viewport, footer help
   options.go       options pane, a right-hand column toggled by global ctrl+o (toggleOptions; slides in/out via
-                   slideMsg, panelW feeds previewWidth): optionRows (Center, Collapse, Group by, Similar to the
-                   cursor font, one row per facet value, Clear filters), applyOption, itemsChanged (keeps the
+                   slideMsg, panelW feeds previewWidth): optionRows (Center, paintRows colour rows, Collapse, Group by,
+                   Similar to the cursor font, one row per facet value, Clear filters; optAxis/optHeading rows are
+                   not selectable), applyOption, itemsChanged (keeps the
                    cursor font), buildIndex/indexMsg
-  copy.go          global ctrl+y: copyCursor renders the cursor font as the preview does (width, Center), figfont.Trim,
-                   then writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace); footer status clears after statusFor
-  lolcat.go        rainbow colouring of the cursor font (lolcat -S 20 -p 7 -F 0.05 equivalent) on the tint background
-  styles.go        all lipgloss styles (adaptive light/dark)
+  paintopts.go     colour rows of the options pane: slider specs (range, step, wrap period, which background modes
+                   enable them), stepSlider, slider/heading/mode line rendering
+  copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, Center, figfont.TrimBlock);
+                   global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
+                   setStatus footer messages clear after statusFor
+  export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → writeNew (O_EXCL, -2, -3 … suffixes)
+                   in exportDir (a var tests replace); safeName for font names with '/'
+  lolcat.go        the cursor font's colouring from State.Paint: per-rune Rainbow, background flat (theme tint or From)
+                   or per cell over preview width × block rows (linear/radial); bgStyle for its header row
+  styles.go        all lipgloss styles (adaptive light/dark); tintColour + themeSeed (background sliders start at the tint)
 ```
 
 ## Patterns
@@ -57,6 +73,7 @@ internal/tui/
 - **Preview anchor** (`tui.Model.refreshPreview`, `anchorFont`): every re-render that is not a reset keeps the anchor font (the cursor font if rendered, else the font at the top of the view) on the same screen row, so text edits, resizes and fonts finishing loading do not shift it.
 - **Text area sizing** (`tui.Model.handleKey`, `resetTextScroll`): the bubbles textarea scrolls its own view during `Update` from its current height, so it is updated at `maxTextLines` and then fitted; after lines are deleted its stale scroll offset is reset via `SetValue` with the cursor restored. Tests call `View()` after each update because bubbles components only learn their content size when rendered.
 - **Lazy loading**: the TUI calls `Catalog.Preload` at start and polls on a tick until the returned channel closes; preview entries show `loading…` or the parse error until ready. When loading finishes, `buildIndex` builds the `fontclass.Index` off the UI goroutine and `indexMsg` hands it to `display.State.SetIndex`; until then the options panel's index-backed rows show `analysing…` and do nothing. The full preview is re-rendered on every change.
+- **Colour in tests**: lipgloss emits no colour escapes under `go test` (no TTY profile); tests asserting colours call `trueColour(t)` in `tui_test.go`, which sets `termenv.TrueColor` and restores it.
 - **Sidebar headers** (`display.Item.IsHeader`): a header has no `Name`, so `cursorName()` is empty on it and the preview reveal/anchor ignore it; space on a header calls `ToggleGroup`.
 
 ## Drill-downs
