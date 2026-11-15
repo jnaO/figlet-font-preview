@@ -364,7 +364,14 @@ func Center(lines []string, height, width int) []string {
 // Trim strips trailing spaces from every line, the leading spaces all
 // non-blank lines share, and blank lines at the start and end.
 func Trim(lines []string) []string {
-	out := make([]string, len(lines))
+	out, _, _ := TrimBlock(lines)
+	return out
+}
+
+// TrimBlock is Trim that also reports how many rows it removed from the top
+// and columns from the left, so callers can map trimmed cells back.
+func TrimBlock(lines []string) (out []string, top, left int) {
+	out = make([]string, len(lines))
 	indent := -1
 	for i, l := range lines {
 		out[i] = strings.TrimRight(l, " ")
@@ -382,11 +389,12 @@ func Trim(lines []string) []string {
 	}
 	for len(out) > 0 && out[0] == "" {
 		out = out[1:]
+		top++
 	}
 	for len(out) > 0 && out[len(out)-1] == "" {
 		out = out[:len(out)-1]
 	}
-	return out
+	return out, top, max(indent, 0)
 }
 
 // at returns s[i], or 0 (C's terminator) outside the slice.

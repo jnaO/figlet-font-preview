@@ -58,10 +58,11 @@ The selection is kept while you search and when you clear the search. The previe
 | list | `esc` | clear the search |
 | anywhere | `ctrl+o` | open or close the options pane |
 | anywhere | `ctrl+y` | copy the cursor font's render to the clipboard as plain text, wrapped and centred as shown |
+| anywhere | `ctrl+s` | save the cursor font's render as a coloured `<font>.svg` in the current directory (never overwrites: adds `-2`, `-3`, …) |
 | list | `q` | quit |
 | options | `↑` / `↓`, `j` / `k` | move |
 | options | `space` / `enter` | toggle the row |
-| options | `←` / `→` | change Group by |
+| options | `←` / `→`, `h` / `l` | change Group by, background Mode, or a slider's value |
 | options | `tab` | back to the text, leaving the pane open |
 | options | `esc` / `ctrl+o` | close the pane |
 
@@ -70,6 +71,8 @@ The selection is kept while you search and when you clear the search. The previe
 Press `ctrl+o` anywhere to slide the options pane in from the right. It has its own column, and changes apply immediately. `tab` moves between the text, search, list and pane.
 
 - **Center text**: centres the text in the preview. `--center` sets the starting value.
+- **Rainbow**: Seed, Spread and Frequency of the lolcat-style colouring of the highlighted font (defaults match `lolcat -S 20 -p 7 -F 0.05`).
+- **Background**: Mode cycles `theme` (the terminal-adaptive tint; transparent in SVG), `solid` (From), `linear` (From → To along Angle; 0° runs left to right, 90° top to bottom) and `radial` (From at the centre to To at the edges). From and To are RGB sliders with a swatch; rows the mode does not use are dimmed. SVG export uses the same colours.
 - **Collapse duplicates**: shows fonts that are identical (the same font in two folders) only once, with `+N` showing how many copies are hidden.
 - **Group by**: groups the font list by Stroke, Weight, Size or Slant. Press space on a group header to select or deselect the whole group.
 - **Similar to**: lists the font under the list cursor, followed by its closest look-alikes, most similar first.

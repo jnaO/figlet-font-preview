@@ -25,24 +25,42 @@ type copiedMsg struct {
 // clearStatusMsg clears the footer status set with the same id.
 type clearStatusMsg struct{ id int }
 
-// copyCursor copies the cursor font's render as plain text: the preview's
-// wrapping and centring, trimmed to the block's own width.
-func (m *Model) copyCursor() tea.Cmd {
+// block is the cursor font's render as the preview lays it out (width,
+// centring), trimmed; top and left are the rows and columns trimmed off.
+type block struct {
+	name      string
+	lines     []string
+	top, left int
+}
+
+// cursorBlock is THE cursor-font render shared by copy and export. When there
+// is nothing to use it returns a footer message instead.
+func (m Model) cursorBlock() (block, string) {
 	name := m.cursorName()
 	e, ok := m.cat.Get(name)
 	if !ok {
-		return m.setStatus("nothing to copy")
+		return block{}, "no font under the cursor"
 	}
 	f, err := e.Font()
 	if err != nil || f == nil {
-		return m.setStatus(name + " is not loaded")
+		return block{}, name + " is not loaded"
 	}
 	lines := f.Render(m.state.Text, m.previewWidth())
 	if m.state.Center {
 		lines = figfont.Center(lines, f.Height, m.previewWidth())
 	}
-	text := strings.Join(figfont.Trim(lines), "\n") + "\n"
-	return func() tea.Msg { return copiedMsg{name, writeClipboard(text)} }
+	out, top, left := figfont.TrimBlock(lines)
+	return block{name, out, top, left}, ""
+}
+
+// copyCursor copies the cursor block as plain text.
+func (m *Model) copyCursor() tea.Cmd {
+	b, msg := m.cursorBlock()
+	if msg != "" {
+		return m.setStatus(msg)
+	}
+	text := strings.Join(b.lines, "\n") + "\n"
+	return func() tea.Msg { return copiedMsg{b.name, writeClipboard(text)} }
 }
 
 // setStatus shows s in the footer until statusFor passes.

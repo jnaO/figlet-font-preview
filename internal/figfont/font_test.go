@@ -107,4 +107,7 @@ func TestTrim(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Trim = %q, want %q", got, want)
 	}
+	if _, top, left := TrimBlock([]string{"  ", "    ab  ", "", "  abcd", "   c ", ""}); top != 1 || left != 2 {
+		t.Fatalf("TrimBlock offsets = %d, %d, want 1, 2", top, left)
+	}
 }

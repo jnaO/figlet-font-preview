@@ -9,6 +9,7 @@ import (
 	"github.com/sahilm/fuzzy"
 
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
+	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
 // NoGroup is GroupBy's value for an ungrouped sidebar.
@@ -38,6 +39,7 @@ type State struct {
 	Center   bool           // centre each rendered line block in the preview width
 	Collapse bool           // show one representative per exact-duplicate group
 	GroupBy  fontclass.Axis // NoGroup, or the axis the sidebar is grouped by
+	Paint    paint.Style    // colouring of the cursor font and of exports
 
 	query    string
 	fonts    []string
@@ -49,7 +51,7 @@ type State struct {
 
 // New returns a state over fonts (expected sorted) with the given text.
 func New(fonts []string, text string) *State {
-	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, GroupBy: NoGroup}
+	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, GroupBy: NoGroup, Paint: paint.Default()}
 }
 
 func (s *State) Query() string                         { return s.query }
