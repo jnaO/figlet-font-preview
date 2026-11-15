@@ -13,6 +13,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
@@ -56,7 +57,7 @@ func testModel(t *testing.T, n int) Model {
 			t.Fatal(err)
 		}
 	}
-	m := New(catalog.Discover([]string{dir}), "ab", false)
+	m := New(catalog.Discover([]string{dir}), "ab", display.AlignLeft)
 	<-m.loaded
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
 	return next.(Model)
@@ -154,10 +155,22 @@ func TestOptionsPaneFromAnyFocus(t *testing.T) {
 	}
 }
 
-func TestOptionsCenterToggle(t *testing.T) {
-	m := key(testModel(t, 3), "ctrl+o", "space") // first row is Center
-	if !m.state.Center {
-		t.Fatal("Center should be on")
+func TestOptionsAlignCycler(t *testing.T) {
+	m := key(testModel(t, 3), "ctrl+o") // first row is Align
+	if !strings.Contains(m.optionsView(), "‹ left ›") {
+		t.Fatal("Align row should read ‹ left ›")
+	}
+	for _, step := range []struct {
+		k    string
+		want display.Align
+	}{{"space", display.AlignCenter}, {"right", display.AlignRight}, {"right", display.AlignLeft}, {"left", display.AlignRight}} {
+		m = key(m, step.k)
+		if m.state.Align != step.want {
+			t.Fatalf("after %q: Align = %v, want %v", step.k, m.state.Align, step.want)
+		}
+	}
+	if !strings.Contains(m.optionsView(), "‹ right ›") {
+		t.Fatal("Align row should read ‹ right ›")
 	}
 }
 
@@ -217,25 +230,34 @@ func TestGroupedSidebarHeaders(t *testing.T) {
 	}
 }
 
-func TestCopyCursorFontCentredAndTrimmed(t *testing.T) {
+func TestCopyCursorFontAlignedAndTrimmed(t *testing.T) {
 	var got string
 	writeClipboard = func(s string) error { got = s; return nil }
 	t.Cleanup(func() { writeClipboard = clipboard.WriteAll })
 
-	m := testModel(t, 2)
-	m.state.Center = true
-	m.text.SetValue("ab\nabcd")
-	m.state.Text = m.text.Value()
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
-	m = next.(Model)
-	next, _ = m.Update(cmd())
-	m = next.(Model)
+	for _, c := range []struct {
+		a    display.Align
+		want string
+	}{
+		{display.AlignCenter, "  a|b|\n  a|b|\na|b|c|d|\na|b|c|d|\n"},
+		{display.AlignRight, "    a|b|\n    a|b|\na|b|c|d|\na|b|c|d|\n"},
+		{display.AlignLeft, "a|b|\na|b|\na|b|c|d|\na|b|c|d|\n"},
+	} {
+		m := testModel(t, 2)
+		m.state.Align = c.a
+		m.text.SetValue("ab\nabcd")
+		m.state.Text = m.text.Value()
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
+		m = next.(Model)
+		next, _ = m.Update(cmd())
+		m = next.(Model)
 
-	if want := "  a|b|\n  a|b|\na|b|c|d|\na|b|c|d|\n"; got != want {
-		t.Fatalf("clipboard = %q, want %q", got, want)
-	}
-	if !strings.Contains(m.footerView(), "copied f00") {
-		t.Fatalf("footer %q lacks the copy status", m.footerView())
+		if got != c.want {
+			t.Fatalf("%v: clipboard = %q, want %q", c.a, got, c.want)
+		}
+		if !strings.Contains(m.footerView(), "copied f00") {
+			t.Fatalf("footer %q lacks the copy status", m.footerView())
+		}
 	}
 }
 

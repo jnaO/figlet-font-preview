@@ -17,7 +17,7 @@ import (
 type optKind int
 
 const (
-	optCenter optKind = iota
+	optAlign optKind = iota
 	optCollapse
 	optGroupBy
 	optSimilar
@@ -97,7 +97,7 @@ func buildIndex(cat *catalog.Catalog) tea.Cmd {
 
 // optionRows lists the panel rows in display order.
 func optionRows() []optRow {
-	rows := append([]optRow{{kind: optCenter}}, paintRows()...)
+	rows := append([]optRow{{kind: optAlign}}, paintRows()...)
 	rows = append(rows, optRow{kind: optHeading, label: "Fonts"}, optRow{kind: optCollapse}, optRow{kind: optGroupBy}, optRow{kind: optSimilar})
 	for _, a := range fontclass.Axes() {
 		rows = append(rows, optRow{kind: optAxis, axis: a.Axis})
@@ -166,11 +166,9 @@ func (m *Model) applyOption(r optRow, dir int) {
 	s := m.state
 	ready := s.Index() != nil
 	switch r.kind {
-	case optCenter:
-		if dir < 0 {
-			return
-		}
-		s.Center = !s.Center
+	case optAlign:
+		n := display.NumAligns
+		s.Align = display.Align((int(s.Align) + dir + n) % n)
 		m.refreshPreview(false)
 		return
 	case optSlider:
@@ -271,8 +269,8 @@ func (m Model) optionLine(r optRow, cursor bool) string {
 	pending := styles.dim.Render("analysing…")
 	var line string
 	switch r.kind {
-	case optCenter:
-		line = check(s.Center) + " Center text"
+	case optAlign:
+		line = alignLine(s.Align)
 	case optCollapse:
 		line = check(s.Collapse) + " Collapse duplicates"
 		if !ready {

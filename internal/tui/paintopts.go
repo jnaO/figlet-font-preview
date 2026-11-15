@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
@@ -148,6 +149,10 @@ func headingLine(st *paint.Style, label string) string {
 	}
 	swatch := lipgloss.NewStyle().Background(colour(c)).Render("  ")
 	return h + " " + swatch + " " + styles.dim.Render(c.Hex())
+}
+
+func alignLine(a display.Align) string {
+	return "    Align     ‹ " + styles.label.Render(a.String()) + " ›"
 }
 
 func bgModeLine(st *paint.Style) string {
