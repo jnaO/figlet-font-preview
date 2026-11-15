@@ -3,7 +3,7 @@
 figlet-font-preview \- preview text in every installed FIGlet and TOIlet font
 .SH SYNOPSIS
 .B figlet-font-preview
-.RB [ \-\-center ]
+.RB [ \-\-center " | " \-\-right ]
 .RB [ \-\-font\-dir
 .IR DIR ]...
 .RI [ text ]
@@ -34,6 +34,10 @@ or
 .B \-\-center
 Centre the rendered text in the preview.
 .TP
+.B \-\-right
+Right-align the rendered text in the preview.
+The default is left; when several of these flags are given, the last one wins.
+.TP
 .BI \-\-font\-dir " DIR"
 Also search
 .I DIR
@@ -62,7 +66,7 @@ Open or close the options pane.
 .TP
 .B ctrl+y
 Copy the cursor font's render to the clipboard as plain text,
-wrapped and centred as shown.
+wrapped and aligned as shown.
 .TP
 .B ctrl+s
 Save the cursor font's render as a coloured
@@ -120,7 +124,7 @@ Move.
 Toggle the row.
 .TP
 .BR left ", " right ", " h ", " l
-Change Group by, the background Mode, or a slider's value.
+Change Align, Group by, the background Mode, or a slider's value.
 .TP
 .B tab
 Back to the text, leaving the pane open.

@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/tui"
 )
 
@@ -35,19 +37,50 @@ type dirList []string
 func (d *dirList) String() string     { return strings.Join(*d, ",") }
 func (d *dirList) Set(v string) error { *d = append(*d, v); return nil }
 
+// alignFlag is a boolean flag that sets *a to to; flags sharing one *a are
+// mutually exclusive and the last one parsed wins.
+type alignFlag struct {
+	a  *display.Align
+	to display.Align
+}
+
+func (f alignFlag) IsBoolFlag() bool { return true }
+
+func (f alignFlag) String() string {
+	if f.a == nil {
+		return "false"
+	}
+	return strconv.FormatBool(*f.a == f.to)
+}
+
+func (f alignFlag) Set(v string) error {
+	on, err := strconv.ParseBool(v)
+	if err != nil {
+		return err
+	}
+	if on {
+		*f.a = f.to
+	} else if *f.a == f.to {
+		*f.a = display.AlignLeft
+	}
+	return nil
+}
+
 // registerFlags defines the command-line flags on fs.
-func registerFlags(fs *flag.FlagSet) (dirs *dirList, center, showVersion *bool) {
+func registerFlags(fs *flag.FlagSet) (dirs *dirList, align *display.Align, showVersion *bool) {
 	dirs = new(dirList)
 	fs.Var(dirs, "font-dir", "extra directory to search for fonts (repeatable)")
-	center = fs.Bool("center", false, "centre the rendered text in the preview")
+	align = new(display.Align)
+	fs.Var(alignFlag{align, display.AlignCenter}, "center", "centre the rendered text in the preview")
+	fs.Var(alignFlag{align, display.AlignRight}, "right", "right-align the rendered text in the preview")
 	showVersion = fs.Bool("version", false, "print version and exit")
-	return dirs, center, showVersion
+	return dirs, align, showVersion
 }
 
 func main() {
-	dirs, center, showVersion := registerFlags(flag.CommandLine)
+	dirs, align, showVersion := registerFlags(flag.CommandLine)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: figlet-font-preview [--center] [--font-dir DIR]... [text]\n\n")
+		fmt.Fprintf(os.Stderr, "usage: figlet-font-preview [--center | --right] [--font-dir DIR]... [text]\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nDefault font roots: %s\n", strings.Join(catalog.DefaultRoots(), ", "))
 	}
@@ -64,7 +97,7 @@ func main() {
 	}
 
 	cat := catalog.Discover(append(catalog.DefaultRoots(), *dirs...))
-	p := tea.NewProgram(tui.New(cat, text, *center), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(tui.New(cat, text, *align), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

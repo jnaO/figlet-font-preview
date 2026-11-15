@@ -11,7 +11,7 @@ cmd/figlet-font-preview → tui → display → fontclass → catalog → figfon
                        │           └──→ paint
                        ├──→ catalog
                        ├──→ svgexport → paint
-                       └──→ figfont (Center, Trim, TrimBlock)
+                       └──→ figfont (Trim, TrimBlock)
 ```
 
 Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly.
@@ -24,7 +24,7 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
 .goreleaser.yaml                  release builds (CGO off; darwin/linux/windows × amd64/arm64; -X main.version), darwin
                                   sign + notarize (quill, after build and before archiving; off in snapshots), archives
                                   (with man/ and completions/), checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency, manpage + bash/zsh/fish completion stanzas)
-cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
+cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center/--right write one display.Align, the last one given wins, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
 man/figlet-font-preview.1         man(7) page: OPTIONS/FILES/KEYS mirror README's Usage, Fonts and Keys sections; a drift test in
                                   cmd/figlet-font-preview/main_test.go checks every flag and font root appears. Edit with README
 completions/figlet-font-preview.{bash,zsh,fish}
@@ -34,7 +34,7 @@ internal/figfont/
   font.go          Parse/ParseFile: flf2a + tlf2a headers, zip-archived fonts, glyph table; THE font parser
   reader.go        byte-level line reader reproducing figlet's myfgets, header sscanf subset, C strtol (code tags)
   font.go/GlyphKey exact-duplicate key (glyph table is private to figfont)
-  render.go        Font.Render(text, width): THE renderer — port of figlet's layout, smushing, RTL and word wrap
+  render.go        Font.Render(text, width): THE renderer — port of figlet's layout, smushing, RTL and word wrap; Center/Right/Trim/TrimBlock block helpers
   golden_test.go   every installed font vs the figlet binary, unwrapped and wrapped; skips without figlet/fonts
   font_test.go     portable fixture tests (testdata/: tiny flf, zipped flf, 0x7F-hardblank tlf, RTL flf)
 internal/catalog/catalog.go
@@ -53,18 +53,18 @@ internal/svgexport/svg.go
                    Render(lines, top, left, style): one <tspan> per non-space rune at its own x, coloured
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
 internal/display/display.go
-                   State: text, Center, Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
+                   State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
 internal/tui/
   tui.go           Bubble Tea model: multiline text area (grows to maxTextLines rows), sidebar (search + list),
                    preview viewport, footer help
   options.go       options pane, a right-hand column toggled by global ctrl+o (toggleOptions; slides in/out via
-                   slideMsg, panelW feeds previewWidth): optionRows (Center, paintRows colour rows, Collapse, Group by,
+                   slideMsg, panelW feeds previewWidth): optionRows (the Align cycler, paintRows colour rows, Collapse, Group by,
                    Similar to the cursor font, one row per facet value, Clear filters; optAxis/optHeading rows are
                    not selectable), applyOption, itemsChanged (keeps the
                    cursor font), buildIndex/indexMsg
   paintopts.go     colour rows of the options pane: slider specs (range, step, wrap period, which background modes
                    enable them), stepSlider, slider/heading/mode line rendering
-  copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, Center, figfont.TrimBlock);
+  copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
                    global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → writeNew (O_EXCL, -2, -3 … suffixes)

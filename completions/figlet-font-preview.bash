@@ -34,7 +34,7 @@ _figlet_font_preview() {
             return 0
             ;;
         -*)
-            _figlet_font_preview_reply -W '--center --font-dir --help --version' -- "$cur"
+            _figlet_font_preview_reply -W '--center --right --font-dir --help --version' -- "$cur"
             ;;
         *)
             COMPREPLY=()

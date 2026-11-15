@@ -49,6 +49,7 @@ figlet-font-preview Hello world           # initial text
 figlet-font-preview $'two\nlines'         # multiline initial text
 figlet-font-preview --font-dir ~/fonts    # also search ~/fonts (repeatable)
 figlet-font-preview --center Hello        # centre the text in the preview
+figlet-font-preview --right Hello         # right-align it; the last of --center / --right wins
 ```
 
 ### Which fonts are shown
@@ -79,12 +80,12 @@ The selection is kept while you search and when you clear the search. The previe
 | list | `/` | jump to search |
 | list | `esc` | clear the search |
 | anywhere | `ctrl+o` | open or close the options pane |
-| anywhere | `ctrl+y` | copy the cursor font's render to the clipboard as plain text, wrapped and centred as shown |
+| anywhere | `ctrl+y` | copy the cursor font's render to the clipboard as plain text, wrapped and aligned as shown |
 | anywhere | `ctrl+s` | save the cursor font's render as a coloured `<font>.svg` in the current directory (never overwrites: adds `-2`, `-3`, …) |
 | list | `q` | quit |
 | options | `↑` / `↓`, `j` / `k` | move |
 | options | `space` / `enter` | toggle the row |
-| options | `←` / `→`, `h` / `l` | change Group by, background Mode, or a slider's value |
+| options | `←` / `→`, `h` / `l` | change Align, Group by, background Mode, or a slider's value |
 | options | `tab` | back to the text, leaving the pane open |
 | options | `esc` / `ctrl+o` | close the pane |
 
@@ -92,7 +93,7 @@ The selection is kept while you search and when you clear the search. The previe
 
 Press `ctrl+o` anywhere to slide the options pane in from the right. It has its own column, and changes apply immediately. `tab` moves between the text, search, list and pane.
 
-- **Center text**: centres the text in the preview. `--center` sets the starting value.
+- **Align**: cycles left, center and right for the text in the preview; left is the default. `--center` or `--right` sets the starting value, and the last one given wins.
 - **Rainbow**: Seed, Spread and Frequency of the lolcat-style colouring of the highlighted font (defaults match `lolcat -S 20 -p 7 -F 0.05`).
 - **Background**: Mode cycles `theme` (the terminal-adaptive tint; transparent in SVG), `solid` (From), `linear` (From → To along Angle; 0° runs left to right, 90° top to bottom) and `radial` (From at the centre to To at the edges). From and To are RGB sliders with a swatch; rows the mode does not use are dimmed. SVG export uses the same colours.
 - **Collapse duplicates**: shows fonts that are identical (the same font in two folders) only once, with `+N` showing how many copies are hidden.
