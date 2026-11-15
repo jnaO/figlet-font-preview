@@ -87,3 +87,14 @@ func TestInstalledFonts(t *testing.T) {
 		}
 	}
 }
+
+func TestSystemRootsEmptyOnWindows(t *testing.T) {
+	if got := systemRoots("windows"); len(got) != 0 {
+		t.Errorf("windows: got %v, want none", got)
+	}
+	for _, goos := range []string{"darwin", "linux", "freebsd"} {
+		if got := systemRoots(goos); len(got) != 3 {
+			t.Errorf("%s: got %v, want 3 roots", goos, got)
+		}
+	}
+}

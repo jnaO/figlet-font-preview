@@ -6,18 +6,40 @@ It renders fonts itself, so the `figlet` program does not need to be installed. 
 
 ## Install
 
+Homebrew (macOS; Linux is best effort):
+
+```sh
+brew install --cask jnaO/tap/figlet-font-preview
+```
+
+This also installs `figlet`, which brings its fonts.
+
+Prebuilt archives for macOS, Linux and Windows (amd64 and arm64) are on the [Releases](https://github.com/jnaO/figlet-font-preview/releases) page. Unpack one and put `figlet-font-preview` on your `PATH`.
+
+With Go 1.26 or newer:
+
 ```sh
 go install github.com/jnaO/figlet-font-preview/cmd/figlet-font-preview@latest
 ```
 
-Fonts are read from these directories when present:
+### Fonts
+
+No fonts are bundled. They are read from these directories when present:
 
 - `/opt/homebrew/share/figlet`
 - `/usr/local/share/figlet`
 - `/usr/share/figlet`
 - `~/figlet-fonts`
 
-On macOS, `brew install figlet toilet` provides about 440 fonts. Fonts in different directories are listed separately even when they are the same font.
+Windows searches only `%USERPROFILE%\figlet-fonts` and `--font-dir`. Fonts in different directories are listed separately even when they are the same font.
+
+To get fonts:
+
+- macOS: `brew install figlet toilet` provides about 440 fonts.
+- Linux: install the `figlet` and `toilet` packages with your package manager.
+- Anywhere: put `.flf`/`.tlf` files in `~/figlet-fonts`, or point `--font-dir` at a folder of them.
+
+More fonts: [figlet.org](https://www.figlet.org), [cmatsuoka/figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) and [cacalabs/toilet](https://github.com/cacalabs/toilet). Fonts are made by their own authors; this project is not affiliated with them.
 
 ## Usage
 
@@ -91,6 +113,10 @@ go test ./...
 ```
 
 The golden tests compare the renderer byte for byte with the real `figlet` for every installed font, and skip when `figlet` or the fonts are missing. See [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Releasing
+
+Push a `vX.Y.Z` tag. The release workflow runs GoReleaser (`.goreleaser.yaml`), which publishes the archives to GitHub Releases and the cask to `jnaO/homebrew-tap`.
 
 ## License
 

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,7 +15,20 @@ import (
 	"github.com/jnaO/figlet-font-preview/internal/tui"
 )
 
+// version is set by release builds with -ldflags "-X main.version=…".
 var version = "dev"
+
+// resolveVersion returns the version to print: the ldflag value when set,
+// else the module version from build info (go install), else "dev".
+func resolveVersion(ldflag string, info *debug.BuildInfo, ok bool) string {
+	if ldflag != "dev" {
+		return ldflag
+	}
+	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return "dev"
+}
 
 type dirList []string
 
@@ -33,7 +47,8 @@ func main() {
 	}
 	flag.Parse()
 	if *showVersion {
-		fmt.Println("figlet-font-preview", version)
+		info, ok := debug.ReadBuildInfo()
+		fmt.Println("figlet-font-preview", resolveVersion(version, info, ok))
 		return
 	}
 
