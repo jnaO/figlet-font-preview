@@ -5,6 +5,7 @@ package catalog
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -12,11 +13,18 @@ import (
 	"github.com/jnaO/figlet-font-preview/internal/figfont"
 )
 
-// SystemRoots are the package-manager font directories.
-var SystemRoots = []string{
-	"/opt/homebrew/share/figlet",
-	"/usr/local/share/figlet",
-	"/usr/share/figlet",
+// SystemRoots are the package-manager font directories; empty on Windows.
+var SystemRoots = systemRoots(runtime.GOOS)
+
+func systemRoots(goos string) []string {
+	if goos == "windows" {
+		return nil
+	}
+	return []string{
+		"/opt/homebrew/share/figlet",
+		"/usr/local/share/figlet",
+		"/usr/share/figlet",
+	}
 }
 
 // UserDir is the per-user font directory, relative to the home directory.
