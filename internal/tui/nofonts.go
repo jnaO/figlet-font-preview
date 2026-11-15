@@ -4,6 +4,7 @@ import "strings"
 
 // fontSources are shown on the no-fonts screen and mirrored in README.md.
 var fontSources = []string{
+	"https://www.figlet.org",
 	"https://github.com/cmatsuoka/figlet-fonts",
 	"https://github.com/cacalabs/toilet",
 }

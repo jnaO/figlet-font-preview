@@ -27,7 +27,7 @@ To get fonts:
 - Linux: install the `figlet` and `toilet` packages with your package manager.
 - Anywhere: put `.flf`/`.tlf` files in `~/figlet-fonts`, or point `--font-dir` at a folder of them.
 
-More fonts: [cmatsuoka/figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) and [cacalabs/toilet](https://github.com/cacalabs/toilet). Fonts are made by their own authors; this project is not affiliated with them.
+More fonts: [figlet.org](https://www.figlet.org), [cmatsuoka/figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) and [cacalabs/toilet](https://github.com/cacalabs/toilet). Fonts are made by their own authors; this project is not affiliated with them.
 
 ## Usage
 
