@@ -102,6 +102,7 @@ func New(cat *catalog.Catalog, text string, center bool) Model {
 		preview: viewport.New(0, 0),
 	}
 	m.state.Center = center
+	m.state.Paint.Background.From, m.state.Paint.Background.To = themeSeed()
 	m.items = m.state.Sidebar()
 	return m
 }
@@ -145,6 +146,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case copiedMsg:
 		return m, m.copied(msg)
 
+	case exportedMsg:
+		return m, m.exported(msg)
+
 	case clearStatusMsg:
 		if msg.id == m.statusID {
 			m.status = ""
@@ -178,6 +182,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.toggleOptions()
 	case "ctrl+y":
 		return m, m.copyCursor()
+	case "ctrl+s":
+		return m, m.exportCursor()
 	case "tab":
 		return m, m.setFocus(m.nextFocus(1))
 	case "shift+tab":
@@ -462,10 +468,10 @@ func (m Model) previewContent() (string, map[string]span) {
 		}
 		switch {
 		case hl && f != nil:
-			body = lolcat(body, w)
+			body = lolcat(body, w, m.state.Paint)
 		case hl:
 			for i, l := range body {
-				body[i] = tintLine(l, w)
+				body[i] = tintLine(l, w, m.state.Paint)
 			}
 		case err != nil:
 			body = []string{styles.err.Render(body[0])}
@@ -487,7 +493,8 @@ func (m Model) fontHeader(name string, w int, hl bool) string {
 		style = styles.headerSelected
 	}
 	if hl {
-		style, rule = style.Inherit(styles.tint), rule.Inherit(styles.tint)
+		bg := bgStyle(m.state.Paint)
+		style, rule = style.Inherit(bg), rule.Inherit(bg)
 	}
 	n := max(w-lipgloss.Width(label)-2, 0)
 	return style.Render("──"+label) + rule.Render(strings.Repeat("─", n))
@@ -574,13 +581,13 @@ func (m Model) footerView() string {
 	var keys string
 	switch m.focus {
 	case focusText:
-		keys = "ctrl+o: options · ctrl+y: copy · type text · enter: new line · tab: search · pgup/pgdn: scroll · ctrl+c: quit"
+		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type text · enter: new line · tab: search · pgup/pgdn: scroll · ctrl+c: quit"
 	case focusSearch:
-		keys = "ctrl+o: options · ctrl+y: copy · type to filter · ↑/↓: move · enter: select · esc: clear · tab: list"
+		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type to filter · ↑/↓: move · enter: select · esc: clear · tab: list"
 	case focusList:
-		keys = "ctrl+o: options · ctrl+y: copy · ↑/↓ j/k: move · space: select · x: clear selection · /: search · tab: text · q: quit"
+		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: select · x: clear selection · /: search · tab: text · q: quit"
 	case focusOptions:
-		keys = "ctrl+y: copy · ↑/↓ j/k: move · space: toggle · ←/→: group by · tab: text · esc/ctrl+o: close options"
+		keys = "ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: toggle · ←/→: group by · tab: text · esc/ctrl+o: close options"
 	}
 	if m.status != "" {
 		return styles.label.Render(truncate(m.status, m.width))

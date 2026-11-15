@@ -9,9 +9,12 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
+	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
 func TestRevealOffset(t *testing.T) {
@@ -35,12 +38,9 @@ func TestRevealOffset(t *testing.T) {
 }
 
 func TestLolcatPadsAndColours(t *testing.T) {
-	out := lolcat([]string{"ab", ""}, 5)
+	out := lolcat([]string{"ab", ""}, 5, paint.Default())
 	if len(out) != 2 || out[0] == "ab" {
 		t.Fatalf("got %q", out)
-	}
-	if rainbow(lolSeed) == rainbow(lolSeed+1) {
-		t.Fatal("adjacent rows should differ in colour")
 	}
 }
 
@@ -82,6 +82,8 @@ func key(m Model, keys ...string) Model {
 			msg = tea.KeyMsg{Type: tea.KeyCtrlO}
 		case "ctrl+y":
 			msg = tea.KeyMsg{Type: tea.KeyCtrlY}
+		case "ctrl+s":
+			msg = tea.KeyMsg{Type: tea.KeyCtrlS}
 		default:
 			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 		}
@@ -159,11 +161,21 @@ func TestOptionsCenterToggle(t *testing.T) {
 	}
 }
 
-func TestOptionsInertBeforeIndex(t *testing.T) {
-	m := key(testModel(t, 3), "ctrl+o")
-	for range 4 { // past Collapse, Group by and Similar to the first facet row
-		m = key(m, "down")
+// toOption moves the open pane's cursor onto the first row of kind k.
+func toOption(t *testing.T, m Model, k optKind) Model {
+	t.Helper()
+	for i, r := range optionRows() {
+		if r.kind == k {
+			m.optCursor = i
+			return m
+		}
 	}
+	t.Fatalf("no option row of kind %d", k)
+	return m
+}
+
+func TestOptionsInertBeforeIndex(t *testing.T) {
+	m := toOption(t, key(testModel(t, 3), "ctrl+o"), optFacet)
 	m = key(m, "space")
 	if m.state.HasFilters() || m.state.Collapse {
 		t.Fatal("options must do nothing before the index arrives")
@@ -173,7 +185,7 @@ func TestOptionsInertBeforeIndex(t *testing.T) {
 func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 	m := withIndex(testModel(t, 5))
 	m = key(m, "tab", "tab", "down", "down") // cursor on f02
-	m = key(m, "ctrl+o", "down", "down", "down", "space")
+	m = key(toOption(t, key(m, "ctrl+o"), optSimilar), "space")
 	if m.state.Similar() != "f02" {
 		t.Fatalf("similar = %q, want f02", m.state.Similar())
 	}
@@ -187,7 +199,7 @@ func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 
 func TestGroupedSidebarHeaders(t *testing.T) {
 	m := withIndex(testModel(t, 4))
-	m = key(m, "tab", "tab", "ctrl+o", "down", "down", "right", "esc") // Group by → Stroke
+	m = key(toOption(t, key(m, "tab", "tab", "ctrl+o"), optGroupBy), "right", "esc") // Group by → Stroke
 	if m.state.GroupBy != fontclass.Stroke || !m.items[0].IsHeader() {
 		t.Fatalf("expected a Stroke header first, got %+v", m.items[0])
 	}
@@ -224,5 +236,125 @@ func TestCopyCursorFontCentredAndTrimmed(t *testing.T) {
 	}
 	if !strings.Contains(m.footerView(), "copied f00") {
 		t.Fatalf("footer %q lacks the copy status", m.footerView())
+	}
+}
+
+func trueColour(t *testing.T) {
+	t.Helper()
+	prev := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(prev) })
+}
+
+func TestLolcatBackgroundModes(t *testing.T) {
+	trueColour(t)
+	st := paint.Default()
+	st.Background = paint.Background{Mode: paint.Solid, From: paint.RGB{R: 10, G: 20, B: 30}, To: paint.RGB{R: 250, G: 250, B: 250}}
+	solid := strings.Join(lolcat([]string{"ab"}, 6, st), "")
+	if !strings.Contains(solid, "48;2;10;20;30") || strings.Contains(solid, "48;2;250;250;250") {
+		t.Fatalf("solid background wrong: %q", solid)
+	}
+
+	st.Background.Mode = paint.Linear
+	lin := strings.Join(lolcat([]string{"ab"}, 6, st), "")
+	left, _ := st.Background.At(0, 0, 6, 1)
+	right, _ := st.Background.At(5, 0, 6, 1)
+	for _, c := range []paint.RGB{left, right} {
+		if want := fmt.Sprintf("48;2;%d;%d;%d", c.R, c.G, c.B); !strings.Contains(lin, want) {
+			t.Fatalf("linear row lacks %s (padding must be painted per cell): %q", want, lin)
+		}
+	}
+	fg := st.Rainbow.At(0, 1)
+	if want := fmt.Sprintf("38;2;%d;%d;%d", fg.R, fg.G, fg.B); !strings.Contains(lin, want) {
+		t.Fatalf("rune (0,1) lacks rainbow colour %s", want)
+	}
+}
+
+func TestSlidersWrapClampAndRespectMode(t *testing.T) {
+	st := paint.Default()
+	st.Rainbow.Seed = 254
+	stepSlider(&st, sSeed, 1)
+	if st.Rainbow.Seed != 2 {
+		t.Fatalf("seed should wrap modulo 256: %d", st.Rainbow.Seed)
+	}
+	st.Background.Angle = 0
+	stepSlider(&st, sAngle, -1)
+	if st.Background.Angle != 345 {
+		t.Fatalf("angle should wrap to 345: %d", st.Background.Angle)
+	}
+	st.Rainbow.Freq = paint.FreqMax
+	stepSlider(&st, sFreq, 1)
+	if st.Rainbow.Freq != paint.FreqMax {
+		t.Fatalf("frequency should clamp: %v", st.Rainbow.Freq)
+	}
+	st.Rainbow.Freq = 0.05
+	stepSlider(&st, sFreq, 1)
+	if st.Rainbow.Freq != 0.06 {
+		t.Fatalf("frequency step drifted: %v", st.Rainbow.Freq)
+	}
+	st.Background.From.R = 250
+	stepSlider(&st, sFromR, 1)
+	if st.Background.From.R != 255 {
+		t.Fatalf("RGB should clamp at 255: %d", st.Background.From.R)
+	}
+
+	m := toOption(t, key(testModel(t, 2), "ctrl+o"), optBgMode)
+	from := m.state.Paint.Background.From
+	m = key(m, "j", "l") // j skips the From heading onto R
+	if m.state.Paint.Background.From != from {
+		t.Fatal("RGB sliders must be inert in theme mode")
+	}
+	m = key(toOption(t, m, optBgMode), "l")
+	if m.state.Paint.Background.Mode != paint.Solid {
+		t.Fatalf("mode = %v, want solid", m.state.Paint.Background.Mode)
+	}
+	m = key(m, "j", "l") // onto From R
+	if m.state.Paint.Background.From.R == from.R {
+		t.Fatal("From R should step in solid mode")
+	}
+}
+
+func TestOptionRowsFitThePane(t *testing.T) {
+	m := withIndex(testModel(t, 2))
+	for _, mode := range []paint.Mode{paint.Theme, paint.Linear} {
+		m.state.Paint.Background.Mode = mode
+		for i, r := range optionRows() {
+			if w := lipgloss.Width(m.optionLine(r, true)); w > optionsWidth {
+				t.Errorf("row %d (%v mode) is %d columns, pane is %d", i, mode, w, optionsWidth)
+			}
+		}
+	}
+}
+
+func TestExportWritesNumberedSVGs(t *testing.T) {
+	dir := t.TempDir()
+	exportDir = dir
+	t.Cleanup(func() { exportDir = "." })
+
+	m := testModel(t, 2)
+	m.state.Paint.Background.Mode = paint.Radial
+	for range 2 {
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+		m = next.(Model)
+		next, _ = m.Update(cmd())
+		m = next.(Model)
+	}
+	for _, name := range []string{"f00.svg", "f00-2.svg"} {
+		doc, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(doc), "<radialGradient") {
+			t.Fatalf("%s lacks the radial background", name)
+		}
+	}
+	if want := "saved " + filepath.Join(dir, "f00-2.svg"); m.status != want {
+		t.Fatalf("status %q, want %q", m.status, want)
+	}
+}
+
+func TestSafeName(t *testing.T) {
+	if got := safeName(`C64-fonts/gothic:a*b?"<>|\\x`); got != "C64-fonts_gothic_a_b_______x" {
+		t.Fatalf("safeName = %q", got)
 	}
 }

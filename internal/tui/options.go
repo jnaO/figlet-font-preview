@@ -11,6 +11,7 @@ import (
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
+	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
 type optKind int
@@ -20,19 +21,24 @@ const (
 	optCollapse
 	optGroupBy
 	optSimilar
-	optAxis // non-selectable axis label
+	optAxis    // non-selectable axis label
+	optHeading // non-selectable free-text label
+	optSlider
+	optBgMode
 	optFacet
 	optClear
 )
 
 // optRow is one row of the options panel.
 type optRow struct {
-	kind  optKind
-	axis  fontclass.Axis
-	value int
+	kind   optKind
+	axis   fontclass.Axis
+	value  int
+	label  string // optHeading
+	slider slider // optSlider
 }
 
-func (r optRow) selectable() bool { return r.kind != optAxis }
+func (r optRow) selectable() bool { return r.kind != optAxis && r.kind != optHeading }
 
 const (
 	optionsWidth = 32 // options pane content columns, excluding its divider
@@ -91,7 +97,8 @@ func buildIndex(cat *catalog.Catalog) tea.Cmd {
 
 // optionRows lists the panel rows in display order.
 func optionRows() []optRow {
-	rows := []optRow{{kind: optCenter}, {kind: optCollapse}, {kind: optGroupBy}, {kind: optSimilar}}
+	rows := append([]optRow{{kind: optCenter}}, paintRows()...)
+	rows = append(rows, optRow{kind: optHeading, label: "Fonts"}, optRow{kind: optCollapse}, optRow{kind: optGroupBy}, optRow{kind: optSimilar})
 	for _, a := range fontclass.Axes() {
 		rows = append(rows, optRow{kind: optAxis, axis: a.Axis})
 		for v := range a.Values {
@@ -164,6 +171,17 @@ func (m *Model) applyOption(r optRow, dir int) {
 			return
 		}
 		s.Center = !s.Center
+		m.refreshPreview(false)
+		return
+	case optSlider:
+		if sliders[r.slider].enabled(s.Paint.Background.Mode) {
+			stepSlider(&s.Paint, r.slider, dir)
+			m.refreshPreview(false)
+		}
+		return
+	case optBgMode:
+		n := int(paint.NumModes)
+		s.Paint.Background.Mode = paint.Mode((int(s.Paint.Background.Mode) + dir + n) % n)
 		m.refreshPreview(false)
 		return
 	case optCollapse:
@@ -282,6 +300,12 @@ func (m Model) optionLine(r optRow, cursor bool) string {
 		}
 	case optAxis:
 		return "  " + styles.header.Render(fontclass.Axes()[r.axis].Name)
+	case optHeading:
+		return headingLine(&s.Paint, r.label)
+	case optSlider:
+		line = sliderLine(&s.Paint, r.slider)
+	case optBgMode:
+		line = bgModeLine(&s.Paint)
 	case optFacet:
 		name := fontclass.Axes()[r.axis].Values[r.value]
 		if !ready {
