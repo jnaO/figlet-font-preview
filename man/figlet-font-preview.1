@@ -56,16 +56,27 @@ Print the usage text, including the default font roots, and exit.
 .SS Anywhere
 .TP
 .B tab\fR, \fBshift+tab
-Cycle focus: text, search, filters, list, and the Style pane while it is open.
+Cycle focus: Text, Fonts (landing on the list), Filters and the Style pane while it is open.
 While the Fonts pane is hidden, only the text and the Style pane take focus.
+The focused pane has an accent outline.
+.TP
+.B ctrl+e
+Focus the text.
+.TP
+.B ctrl+f
+Focus the search.
+When Style has hidden the Fonts pane, Style closes first.
+.TP
+.B ctrl+t
+Focus the filters, with the same rule.
 .TP
 .BR pgup ", " pgdn ", " ctrl+u ", " ctrl+d ", mouse wheel"
 Scroll the preview.
 .TP
 .B ctrl+o
 Show or hide the Style pane.
-Below 76 columns the Fonts pane steps aside while Style is open and returns when it closes.
-Below 45 columns Style does not open.
+Below 79 columns the Fonts pane steps aside while Style is open and returns when it closes.
+Below 47 columns Style does not open.
 .TP
 .B ctrl+y
 Copy the cursor font's render to the clipboard as plain text,
@@ -79,13 +90,25 @@ An existing file is never overwritten; \-2, \-3, ... is added to the name.
 .TP
 .B ctrl+c
 Quit.
+.B esc
+and
+.B q
+never quit.
 .SS Text
 .TP
 .BR "type" ", " enter
 Edit the text.
 .B enter
 starts a new line.
-The box grows to 5 rows, then scrolls.
+.BR ctrl+e ", " ctrl+f ", " ctrl+t " and " ctrl+k
+are app keys here, so
+.B end
+and
+.B right
+do the line-editing jobs.
+.TP
+.B esc
+Go to the Fonts list.
 .SS Search
 .TP
 .B type
@@ -95,10 +118,10 @@ Fuzzy-filter fonts.
 Move in the list.
 .TP
 .B enter
-Select or deselect the highlighted font.
+Go to the list, keeping the query.
 .TP
 .B esc
-Clear the search.
+Clear the search and go to the list.
 .SS List
 .TP
 .BR up ", " down ", " j ", " k ", " g ", " G
@@ -115,9 +138,6 @@ Jump to the search.
 .TP
 .B esc
 Clear the search.
-.TP
-.B q
-Quit.
 .SS Filters
 The filter checklist in the Fonts pane, between the search and the list.
 .TP
@@ -132,9 +152,6 @@ Step Group by back.
 .TP
 .B esc
 Back to the list.
-.TP
-.B q
-Quit.
 .SS Style pane
 .TP
 .BR up ", " down ", " j ", " k
@@ -146,10 +163,11 @@ Change the row.
 .BR left ", " right ", " h ", " l
 Change Align, the background Mode, or a slider's value.
 .TP
-.B tab
-Back to the text, leaving the pane open.
+.B esc
+Go to the Fonts list, leaving the pane open.
+Below 79 columns Style closes so the Fonts pane can show.
 .TP
-.BR esc ", " ctrl+o
+.B ctrl+o
 Close the pane.
 .SH FILES
 Fonts are read from these directories when they exist:

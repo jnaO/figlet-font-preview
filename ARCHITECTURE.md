@@ -55,15 +55,23 @@ internal/svgexport/svg.go
 internal/display/display.go
                    State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
 internal/tui/
-  tui.go           Bubble Tea model: framed, labelled text bar (textBar; grows to maxTextLines rows), Fonts pane (sidebarView:
-                   search, filter window, count, list; focusFilters sits between search and list), preview viewport, footer help.
-                   fontsHidden: Fonts steps aside while Style is open or sliding and width < bothFitWidth (76 = Fonts + minPreviewWidth
+  tui.go           Bubble Tea model: framed, labelled text bar (textBar; grows to maxTextLines rows), left column (sidebarView: fontsView = search, count,
+                   cursor/pick legend, list; filtersView = filter window, each in its own frame), unframed preview viewport, footer.
+                   Five focus values, four tab stops (Text, Fonts = focusList, Filters, Style; nextFocus/fontsStop): search is a
+                   position inside Fonts (/ and ctrl+f; ctrl+t reaches Filters; esc/enter return to the list). focusFonts (keys.go) closes
+                   Style first when it has hidden Fonts. esc and q never quit
+                   fontsHidden: Fonts steps aside while Style is open or sliding and width < bothFitWidth (79 = Fonts + minPreviewWidth
                    preview + Style); previewWidth and View read it, nextFocus skips Fonts zones while hidden
+  frame.go         frame(title, key, body, outer, height, padL, padR, focused): THE pane border (rounded, title and key in the top edge,
+                   dim unfocused, accent focused) used by the text bar, Fonts, Filters and Style (Style has one column of right padding: styleFrameCols = 3)
+  keys.go          globalKeys: THE app-wide key-to-action table (tab, ctrl+o/y/s/e/f/t/k, pgup/pgdn, ctrl+c); handleKey looks keys
+                   up here before any zone code, which takes ctrl+e/f/t/k from the textarea and textinput; footerKeys builds the
+                   one footer from the same entries (whole entries, ctrl+c always last); ctrl+k is a no-op entry reserved for #62
   options.go       row vocabulary shared by both panes (optRow, optKind, rowCursor, applyOption, optionLine(row, cursor, width)):
                    filterRows (Fonts pane: Collapse, Group by, Similar to the cursor font, one row per facet value, Clear filters;
                    optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the
                    right-hand column toggled by global ctrl+o (toggleStyle; slides in/out via slideMsg, panelW feeds previewWidth;
-                   refused below styleFitWidth = 45), itemsChanged (keeps the cursor font), buildIndex/indexMsg
+                   refused below styleFitWidth = 47), itemsChanged (keeps the cursor font), buildIndex/indexMsg
   paintopts.go     colour rows of the Style pane: slider specs (range, step, wrap period, which background modes
                    enable them), stepSlider, slider/heading/mode line rendering
   copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
@@ -80,7 +88,7 @@ internal/tui/
 
 ## Patterns
 
-- **Universe pipeline** (`display.State.universe`): with a `fontclass.Index` set, the font list first goes through Collapse (representatives only), then facet filters (OR within an axis, AND across axes), then the Similar anchor plus up to `SimilarCap` look-alikes in distance order; selected fonts are always added back. With no index or every option off, the universe is all fonts.
+- **Universe pipeline** (`display.State.universe`): with a `fontclass.Index` set, the font list first goes through Collapse (representatives only), then facet filters (OR within an axis, AND across axes), then the Similar anchor plus up to `SimilarCap` look-alikes in distance order; selected fonts are always added back. With no index or every option off, the universe is all fonts. Collapse starts on (`display.New`) and takes effect when the index arrives.
 - **Render set** (`display.State.RenderSet`), over the universe: no query + no selection → the sidebar's fonts in sidebar order; no query → selection (sorted); query → selection first, then fuzzy matches not already listed. The sidebar shows the universe without a query, otherwise only matches in `sahilm/fuzzy` rank order; with `GroupBy` set, a header `Item` precedes each non-empty group (axis value order, `Unclassified` last) and `ToggleGroup` selects or deselects the whole group.
 - **Font names** (`catalog.uniqueNames`): basename without extension; on a basename collision, `parentdir/basename`; on a further collision, the full path minus extension. Names come from the resolved real path, so a symlink alias collapses into its target's name.
 - **Cursor font in the preview** (`tui.Model.revealCursor`, `revealOffset`): `previewContent` records each rendered font's line span; on cursor move, query change or toggle the preview scrolls the minimum needed to show the cursor font in full (its top when taller than the view), and never when it is already fully visible or not in the render set. The cursor font is drawn with `lolcat`.

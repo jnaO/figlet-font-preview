@@ -66,39 +66,41 @@ The selection is kept while you search and when you clear the search. The previe
 
 | Where | Key | Action |
 |---|---|---|
-| text | type, `enter` | edit the text; `enter` starts a new line (the box grows to 5 rows, then scrolls) |
-| anywhere | `tab` / `shift+tab` | cycle focus: text → search → filters → list, then Style while it is open |
+| text | type, `enter` | edit the text; `enter` starts a new line (the box grows to 5 rows, then scrolls). `ctrl+e`, `ctrl+f`, `ctrl+t` and `ctrl+k` are app keys here, so `end` and `→` do the line-editing jobs |
+| text | `esc` | go to the Fonts list |
+| anywhere | `tab` / `shift+tab` | cycle focus: Text → Fonts → Filters → Style (while it is open); Fonts lands on the list |
+| anywhere | `ctrl+e` | focus the text |
+| anywhere | `ctrl+f` | focus the search; with Fonts hidden behind Style, closes Style first |
+| anywhere | `ctrl+t` | focus the filters, with the same rule |
 | anywhere | `pgup` / `pgdn`, `ctrl+u` / `ctrl+d`, mouse wheel | scroll the preview |
-| anywhere | `ctrl+c` | quit |
+| anywhere | `ctrl+c` | quit (`esc` and `q` never quit) |
 | search | type | fuzzy-filter fonts |
 | search | `↑` / `↓` | move in the list |
-| search | `enter` | select or deselect the highlighted font |
-| search | `esc` | clear the search |
+| search | `enter` | go to the list, keeping the query |
+| search | `esc` | clear the search and go to the list |
 | list | `↑` / `↓`, `j` / `k`, `g` / `G` | move |
 | list | `space` / `enter` | select or deselect |
 | list | `x` | clear the selection |
 | list | `/` | jump to search |
 | list | `esc` | clear the search |
-| anywhere | `ctrl+o` | show or hide the Style pane; below 76 columns the Fonts pane steps aside while it is open, and below 45 columns Style does not open |
+| anywhere | `ctrl+o` | show or hide the Style pane; below 79 columns the Fonts pane steps aside while it is open, and below 47 columns Style does not open |
 | anywhere | `ctrl+y` | copy the cursor font's render to the clipboard as plain text, wrapped and aligned as shown |
 | anywhere | `ctrl+s` | save the cursor font's render as a coloured `<font>.svg` in the current directory (never overwrites: adds `-2`, `-3`, …) |
-| list | `q` | quit |
 | filters | `↑` / `↓`, `j` / `k` | move |
 | filters | `space` / `enter` / `→` / `l` | toggle the row, or step Group by forward |
 | filters | `←` / `h` | step Group by back |
 | filters | `esc` | back to the list |
-| filters | `q` | quit |
 | style | `↑` / `↓`, `j` / `k` | move |
 | style | `space` / `enter` | change the row |
 | style | `←` / `→`, `h` / `l` | change Align, background Mode, or a slider's value |
-| style | `tab` | back to the text, leaving the pane open |
-| style | `esc` / `ctrl+o` | close the pane |
+| style | `esc` | go to the Fonts list, leaving the pane open (below 79 columns Style closes so Fonts can show) |
+| style | `ctrl+o` | close the pane |
 
 ### Fonts pane
 
-The left column holds the search, a scrolling checklist of filters, a count such as `412 of 768 fonts · 2 selected`, and the font list. Changes apply immediately, and `tab` moves between the text, search, filters, list and the Style pane while it is open.
+The left column is two framed segments: Fonts (search, a count such as `412/768 · 2 ●` (listed, installed, picked), a legend (`›` is the cursor and drives copy and SVG, `●` is a pick and narrows the preview) and the font list) above Filters (a scrolling checklist). Every pane has a rounded frame that takes the accent colour while it has focus. Changes apply immediately. `tab` moves between the text, the Fonts list, Filters and the Style pane while it is open; `/` or `ctrl+f` jump to the search and `ctrl+t` to the filters.
 
-- **Collapse duplicates**: shows fonts that are identical (the same font in two folders) only once, with `+N` showing how many copies are hidden.
+- **Collapse duplicates**: shows fonts that are identical (the same font in two folders) only once, with `+N` showing how many copies are hidden. It is on at start.
 - **Group by**: groups the font list by Stroke, Weight, Size or Slant. Press `esc` to reach the list, then space on a group header to select or deselect the whole group.
 - **Similar to**: lists the font under the list cursor, followed by its closest look-alikes, most similar first.
 - **Filters**: every value of the four measured axes, with font counts. Within an axis, any checked value matches; across axes, all must match.
@@ -111,7 +113,7 @@ Selected fonts always stay visible, whatever is filtered or collapsed. Categorie
 
 ### Style pane
 
-Press `ctrl+o` anywhere to slide the Style pane in from the right; it is closed at start. It has its own column, and changes apply immediately. On terminals narrower than 76 columns the Fonts pane steps aside while Style is open and returns when it closes; below 45 columns Style does not open.
+Press `ctrl+o` anywhere to slide the Style pane in from the right; it is closed at start. It has its own column, and changes apply immediately. On terminals narrower than 79 columns the Fonts pane steps aside while Style is open and returns when it closes; below 47 columns Style does not open.
 
 - **Align**: cycles left, center and right for the text in the preview; left is the default. `--center` or `--right` sets the starting value, and the last one given wins.
 - **Rainbow**: Seed, Spread and Frequency of the lolcat-style colouring of the highlighted font (defaults match `lolcat -S 20 -p 7 -F 0.05`).
