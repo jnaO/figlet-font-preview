@@ -69,6 +69,14 @@ func TestCenter(t *testing.T) {
 	}
 }
 
+func TestRight(t *testing.T) {
+	lines := []string{"ab", "abcd", "x", "x"}
+	want := []string{"      ab", "      abcd", "         x", "         x"}
+	if got := Right(lines, 2, 10); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
 func TestParseSkipsBOM(t *testing.T) {
 	data, err := os.ReadFile("testdata/tiny.flf")
 	if err != nil {
