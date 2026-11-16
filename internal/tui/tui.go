@@ -523,7 +523,7 @@ func (m Model) previewContent() (string, map[string]span) {
 		case f == nil:
 			body = []string{"loading…"}
 		default:
-			body = m.state.Align.Apply(f.Render(m.state.Text, w), f.Height, w)
+			body = m.state.Lines(f, w)
 		}
 		switch {
 		case hl && f != nil:

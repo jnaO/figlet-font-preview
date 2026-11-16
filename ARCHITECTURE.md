@@ -8,6 +8,7 @@ Planning lives in GitHub issues on `jnaO/figlet-font-preview`: Stories carry the
 
 ```
 cmd/figlet-font-preview → tui → display → fontclass → catalog → figfont
+                       │   │       ├──→ catalog
                        │   │       └──→ paint
                        │   ├──→ action
                        │   └──→ newfile
@@ -64,7 +65,8 @@ internal/svgexport/svg.go
 internal/newfile/newfile.go
                    Write(dir, base, ext, data): never-overwrite file writer (O_EXCL; -2, -3 … suffixes; returns the absolute path); SafeName(name) maps unsafe file-name characters to '_'
 internal/display/display.go
-                   State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
+                   State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule;
+                   Lines(font, width) and Block(catalog, name, width): THE cursor-font render (Align.Apply over Font.Render; Block trims with figfont.TrimBlock and returns Top/Left, or the footer error "no font under the cursor" / "<name> is not loaded")
 internal/tui/
   tui.go           Bubble Tea model: framed, labelled text bar (textBar; grows to maxTextLines rows), left column (sidebarView: fontsView = search, count,
                    cursor/pick legend, list; filtersView = filter window, each in its own frame), unframed preview viewport, footer.
@@ -95,8 +97,7 @@ internal/tui/
                    refused below styleFitWidth = 47), itemsChanged (keeps the cursor font), buildIndex/indexMsg
   paintopts.go     colour rows of the Style pane: slider specs (range, step, wrap period, which background modes
                    enable them), stepSlider, slider/heading/mode line rendering
-  copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
-                   global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
+  copy.go          global ctrl+y copyCursor (State.Block at the preview width, THE cursor-font render, shared with export) → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)
                    in exportDir (a var tests replace)

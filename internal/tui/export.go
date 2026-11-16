@@ -21,13 +21,13 @@ type exportedMsg struct {
 // exportCursor writes the cursor block as <font>.svg in exportDir, coloured
 // with the current paint style, never overwriting an existing file.
 func (m *Model) exportCursor() tea.Cmd {
-	b, msg := m.cursorBlock()
-	if msg != "" {
-		return m.setStatus(msg)
+	b, err := m.state.Block(m.cat, m.cursorName(), m.previewWidth())
+	if err != nil {
+		return m.setStatus(err.Error())
 	}
-	doc := svgexport.Render(b.lines, b.top, b.left, m.state.Paint)
+	doc := svgexport.Render(b.Lines, b.Top, b.Left, m.state.Paint)
 	return func() tea.Msg {
-		path, err := newfile.Write(exportDir, newfile.SafeName(b.name), ".svg", doc)
+		path, err := newfile.Write(exportDir, newfile.SafeName(b.Name), ".svg", doc)
 		return exportedMsg{path, err}
 	}
 }
