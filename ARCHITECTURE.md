@@ -9,13 +9,14 @@ Planning lives in GitHub issues on `jnaO/figlet-font-preview`: Stories carry the
 ```
 cmd/figlet-font-preview → tui → display → fontclass → catalog → figfont
                        │   │       └──→ paint
-                       │   └──→ action
+                       │   ├──→ action
+                       │   └──→ newfile
                        ├──→ catalog
                        ├──→ svgexport → paint
                        └──→ figfont (Parse, Render, Center, Trim, TrimBlock)
 ```
 
-Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport ./internal/action | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
+Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps $(go list ./internal/... | grep -v /internal/tui$) | grep charmbracelet` prints nothing; it covers every package added below `internal/tui` automatically). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
 
 ## Map
 
@@ -59,6 +60,8 @@ internal/action/action.go
 internal/svgexport/svg.go
                    Render(lines, top, left, style): one <tspan> per non-space rune at its own x, coloured
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
+internal/newfile/newfile.go
+                   Write(dir, base, ext, data): never-overwrite file writer (O_EXCL; -2, -3 … suffixes; returns the absolute path); SafeName(name) maps unsafe file-name characters to '_'
 internal/display/display.go
                    State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
 internal/tui/
@@ -94,8 +97,8 @@ internal/tui/
   copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
                    global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
-  export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → writeNew (O_EXCL, -2, -3 … suffixes)
-                   in exportDir (a var tests replace); safeName for font names with '/'
+  export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)
+                   in exportDir (a var tests replace)
   nofonts.go       noFontsMessage: the empty-catalog preview (searched roots, per-GOOS install hint, fontSources
                    links mirrored in README.md, disclaimer)
   lolcat.go        the cursor font's colouring from State.Paint: per-rune Rainbow, background flat (theme tint or From)

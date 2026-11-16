@@ -479,12 +479,6 @@ func TestExportWritesNumberedSVGs(t *testing.T) {
 	}
 }
 
-func TestSafeName(t *testing.T) {
-	if got := safeName(`C64-fonts/gothic:a*b?"<>|\\x`); got != "C64-fonts_gothic_a_b_______x" {
-		t.Fatalf("safeName = %q", got)
-	}
-}
-
 func TestTextBarIsFramedAndLabelled(t *testing.T) {
 	for _, text := range []string{"ab", "ab\ncd"} {
 		m := testModel(t, 3)
