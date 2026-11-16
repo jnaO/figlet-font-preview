@@ -16,6 +16,7 @@ import (
 
 	"github.com/jnaO/figlet-font-preview/internal/action"
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/controls"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 )
 
@@ -308,7 +309,7 @@ func (m *Model) setFocus(f focus) tea.Cmd {
 	case focusSearch:
 		return m.search.Focus()
 	case focusFilters:
-		m.filterCur.move(filterRows(), 0, m.filterHeight())
+		m.filterCur.move(controls.FilterRows(), 0, m.filterHeight())
 	}
 	return nil
 }
@@ -393,8 +394,8 @@ func (m *Model) layout() {
 	m.search.Width = sidebarWidth - lipgloss.Width(m.search.Prompt) - 1
 	m.preview.Width = m.previewWidth()
 	m.preview.Height = m.bodyHeight()
-	m.filterCur.move(filterRows(), 0, m.filterHeight())
-	m.styleCur.move(styleRows(), 0, m.styleHeight())
+	m.filterCur.move(controls.FilterRows(), 0, m.filterHeight())
+	m.styleCur.move(controls.StyleRows(), 0, m.styleHeight())
 	m.clampOffset()
 }
 
@@ -441,7 +442,7 @@ func (m Model) previewWidth() int {
 // filterHeight is the number of filter rows the Filters frame shows; Fonts
 // keeps at least one list row when the body allows.
 func (m Model) filterHeight() int {
-	return max(min(max(m.bodyHeight()/3, 3), len(filterRows()), m.bodyHeight()-8), 1)
+	return max(min(max(m.bodyHeight()/3, 3), len(controls.FilterRows()), m.bodyHeight()-8), 1)
 }
 
 // listHeight is the number of font rows the Fonts frame shows: both frames'
@@ -604,7 +605,7 @@ func (m Model) fontsView() string {
 // filtersView frames the filter window.
 func (m Model) filtersView() string {
 	var lines []string
-	rows := filterRows()
+	rows := controls.FilterRows()
 	for i := m.filterCur.offset; i < min(m.filterCur.offset+m.filterHeight(), len(rows)); i++ {
 		lines = append(lines, m.optionLine(rows[i], i == m.filterCur.cursor && m.focus == focusFilters, sidebarWidth))
 	}

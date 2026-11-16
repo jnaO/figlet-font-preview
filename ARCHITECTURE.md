@@ -11,7 +11,8 @@ cmd/figlet-font-preview → tui → display → fontclass → catalog → figfon
                        │   │       ├──→ catalog
                        │   │       └──→ paint
                        │   ├──→ action
-                       │   ├──→ controls → paint
+                       │   ├──→ controls → display
+                       │   │          └──→ paint
                        │   └──→ newfile
                        ├──→ catalog
                        ├──→ svgexport → paint
@@ -65,8 +66,10 @@ internal/svgexport/svg.go
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
 internal/newfile/newfile.go
                    Write(dir, base, ext, data): never-overwrite file writer (O_EXCL; -2, -3 … suffixes; returns the absolute path); SafeName(name) maps unsafe file-name characters to '_'
-internal/controls/slider.go
-                   Slider (Seed … Angle) and Slider.Spec(): Spec{Label, Lo, Hi, Step, Period, Format} with Enabled(paint.Mode) and Get(*paint.Style);
+internal/controls/
+  rows.go          Kind (KindAlign … KindClear), Row{Kind, Axis, Value, Label, Slider} with Selectable(); FilterRows() (Collapse, Group by, Similar, a facet row per axis value, Clear) and StyleRows() (Align, then the colour rows)
+  apply.go         Apply(state, row, dir, cursor) Effect: THE rule for what a row does (filter rows are inert before the index; dir < 0 does nothing for Collapse/Similar/Facet/Clear; Group by cycles NoGroup and each axis; Similar anchors on cursor); Effect = NoEffect | PreviewChanged | ItemsChanged
+  slider.go        Slider (Seed … Angle) and Slider.Spec(): Spec{Label, Lo, Hi, Step, Period, Format} with Enabled(paint.Mode) and Get(*paint.Style);
                    StepSlider(st, k, dir) (wraps when Period > 0, else clamps); FromActive/ToActive: which background modes use the From/To colour
 internal/display/display.go
                    State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule;
@@ -94,12 +97,12 @@ internal/tui/
                    internal/action id (empty for navigation); zoneKeys holds the actions a zone handles itself (space, x, ?;
                    no keys, so lookupKey skips them); binding(id) finds an action's entry; a test checks every action.All() id
                    has one binding
-  options.go       row vocabulary shared by both panes (optRow, optKind, rowCursor, applyOption, optionLine(row, cursor, width)):
-                   filterRows (Fonts pane: Collapse, Group by, Similar to the cursor font, one row per facet value, Clear filters;
-                   optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the
+  options.go       the panes' cursor and rendering: rowCursor, rowKey, applyOption (calls controls.Apply with the cursor font name and
+                   turns its Effect into refreshPreview/itemsChanged), optionLine(row, cursor, width); the rows are controls.FilterRows
+                   (Fonts pane) and controls.StyleRows. Style is the
                    right-hand column toggled by global ctrl+o (toggleStyle; slides in/out via slideMsg, panelW feeds previewWidth;
                    refused below styleFitWidth = 47), itemsChanged (keeps the cursor font), buildIndex/indexMsg
-  paintopts.go     colour rows of the Style pane (paintRows) and the slider/heading/align/mode line rendering; the slider specs are controls.Slider
+  paintopts.go     the Style pane's slider/heading/align/mode line rendering (rows and slider specs are in controls)
   copy.go          global ctrl+y copyCursor (State.Block at the preview width, THE cursor-font render, shared with export) → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)

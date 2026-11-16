@@ -13,6 +13,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/controls"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
@@ -259,17 +260,17 @@ func TestStyleAlignCycler(t *testing.T) {
 }
 
 // toOption moves the matching pane's cursor onto the first row of kind k and focuses it.
-func toOption(t *testing.T, m Model, k optKind) Model {
+func toOption(t *testing.T, m Model, k controls.Kind) Model {
 	t.Helper()
-	for i, r := range filterRows() {
-		if r.kind == k {
+	for i, r := range controls.FilterRows() {
+		if r.Kind == k {
 			m.filterCur.cursor = i
 			m.setFocus(focusFilters)
 			return m
 		}
 	}
-	for i, r := range styleRows() {
-		if r.kind == k {
+	for i, r := range controls.StyleRows() {
+		if r.Kind == k {
 			m.styleCur.cursor = i
 			m.setFocus(focusStyle)
 			return m
@@ -280,7 +281,7 @@ func toOption(t *testing.T, m Model, k optKind) Model {
 }
 
 func TestOptionsInertBeforeIndex(t *testing.T) {
-	m := toOption(t, testModel(t, 3), optFacet)
+	m := toOption(t, testModel(t, 3), controls.KindFacet)
 	m = key(m, "space")
 	if m.state.HasFilters() || m.state.Collapse {
 		t.Fatal("options must do nothing before the index arrives")
@@ -290,7 +291,7 @@ func TestOptionsInertBeforeIndex(t *testing.T) {
 func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 	m := withIndex(testModel(t, 5))
 	m = key(m, "tab", "down", "down") // cursor on f02
-	m = key(toOption(t, m, optSimilar), "space")
+	m = key(toOption(t, m, controls.KindSimilar), "space")
 	if m.state.Similar() != "f02" {
 		t.Fatalf("similar = %q, want f02", m.state.Similar())
 	}
@@ -304,7 +305,7 @@ func TestOptionsSimilarAnchorsCursorFont(t *testing.T) {
 
 func TestGroupedSidebarHeaders(t *testing.T) {
 	m := withIndex(testModel(t, 4))
-	m = key(toOption(t, m, optGroupBy), "right", "esc") // Group by → Stroke, esc → list
+	m = key(toOption(t, m, controls.KindGroupBy), "right", "esc") // Group by → Stroke, esc → list
 	if m.state.GroupBy != fontclass.Stroke || !m.items[0].IsHeader() {
 		t.Fatalf("expected a Stroke header first, got %+v", m.items[0])
 	}
@@ -385,13 +386,13 @@ func TestLolcatBackgroundModes(t *testing.T) {
 }
 
 func TestSlidersRespectMode(t *testing.T) {
-	m := toOption(t, key(testModel(t, 2), "ctrl+o"), optBgMode)
+	m := toOption(t, key(testModel(t, 2), "ctrl+o"), controls.KindBgMode)
 	from := m.state.Paint.Background.From
 	m = key(m, "j", "l") // j skips the From heading onto R
 	if m.state.Paint.Background.From != from {
 		t.Fatal("RGB sliders must be inert in theme mode")
 	}
-	m = key(toOption(t, m, optBgMode), "l")
+	m = key(toOption(t, m, controls.KindBgMode), "l")
 	if m.state.Paint.Background.Mode != paint.Solid {
 		t.Fatalf("mode = %v, want solid", m.state.Paint.Background.Mode)
 	}
@@ -407,9 +408,9 @@ func TestRowsFitTheirPane(t *testing.T) {
 		m.state.Paint.Background.Mode = mode
 		for _, p := range []struct {
 			name  string
-			rows  []optRow
+			rows  []controls.Row
 			width int
-		}{{"filter", filterRows(), sidebarWidth}, {"style", styleRows(), styleWidth}} {
+		}{{"filter", controls.FilterRows(), sidebarWidth}, {"style", controls.StyleRows(), styleWidth}} {
 			for i, r := range p.rows {
 				if w := lipgloss.Width(m.optionLine(r, true, p.width)); w > p.width {
 					t.Errorf("%s row %d (%v mode) is %d columns, pane is %d", p.name, i, mode, w, p.width)
@@ -418,8 +419,8 @@ func TestRowsFitTheirPane(t *testing.T) {
 		}
 	}
 	m.state.SetSimilar("f01")
-	for _, r := range filterRows() {
-		if r.kind == optSimilar && lipgloss.Width(m.optionLine(r, true, sidebarWidth)) > sidebarWidth {
+	for _, r := range controls.FilterRows() {
+		if r.Kind == controls.KindSimilar && lipgloss.Width(m.optionLine(r, true, sidebarWidth)) > sidebarWidth {
 			t.Error("Similar row overflows the Fonts pane")
 		}
 	}
@@ -497,15 +498,15 @@ func TestFontsPaneFillsTheBody(t *testing.T) {
 
 func TestClearFiltersScrollsIntoTheFilterWindow(t *testing.T) {
 	m := withIndex(testModel(t, 3))
-	if m.filterHeight() >= len(filterRows()) {
+	if m.filterHeight() >= len(controls.FilterRows()) {
 		t.Fatal("test needs a filter window shorter than the checklist")
 	}
-	m = toOption(t, m, optCollapse)
-	for range len(filterRows()) {
+	m = toOption(t, m, controls.KindCollapse)
+	for range len(controls.FilterRows()) {
 		m = key(m, "j")
 	}
-	if r := filterRows()[m.filterCur.cursor]; r.kind != optClear {
-		t.Fatalf("cursor on kind %d, want Clear filters", r.kind)
+	if r := controls.FilterRows()[m.filterCur.cursor]; r.Kind != controls.KindClear {
+		t.Fatalf("cursor on kind %d, want Clear filters", r.Kind)
 	}
 	if !strings.Contains(m.sidebarView(), "Clear filters") {
 		t.Fatalf("Clear filters not scrolled into view:\n%s", m.sidebarView())

@@ -12,27 +12,6 @@ import (
 	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
-// paintRows lists the colour rows of the Style pane.
-func paintRows() []optRow {
-	return []optRow{
-		{kind: optHeading, label: "Rainbow"},
-		{kind: optSlider, slider: controls.Seed},
-		{kind: optSlider, slider: controls.Spread},
-		{kind: optSlider, slider: controls.Freq},
-		{kind: optHeading, label: "Background"},
-		{kind: optBgMode},
-		{kind: optHeading, label: "From"},
-		{kind: optSlider, slider: controls.FromR},
-		{kind: optSlider, slider: controls.FromG},
-		{kind: optSlider, slider: controls.FromB},
-		{kind: optHeading, label: "To"},
-		{kind: optSlider, slider: controls.ToR},
-		{kind: optSlider, slider: controls.ToG},
-		{kind: optSlider, slider: controls.ToB},
-		{kind: optSlider, slider: controls.Angle},
-	}
-}
-
 const barCells = 10
 
 // sliderLine is "    Label     ━━━●──────  value": 4 + 10 + 10 + 6 columns.
