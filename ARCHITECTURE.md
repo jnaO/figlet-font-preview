@@ -71,11 +71,13 @@ internal/tui/
                    preview + Style); previewWidth and View read it, nextFocus skips Fonts zones while hidden
   frame.go         frame(title, key, body, outer, height, padL, padR, focused): THE pane border (rounded, title and key in the top edge,
                    dim unfocused, accent focused) used by the text bar, Fonts, Filters and Style (Style has one column of right padding: styleFrameCols = 3);
+                   bottomEdge(label, outer): the focused bottom edge carrying a label (help's scroll hint);
                    overlay(bg, box, x, y): splices a box over the screen string with ansi.Truncate/TruncateLeft, keeping the colours around it
   palette.go       ctrl+k command palette: paletteState (input, fuzzy rows over action.All() minus palette, cursor/offset), an accent-framed
                    overlay on the first body row; its own keys first, any other globalKeys key closes it and runs (close before run)
-  help.go          ? help screen: helpState (bubbles viewport), Actions column from action.All() + binding().show, static paneKeys table,
-                   legend; two columns when they fit, else stacked; opens outside focusText/focusSearch (or from the palette)
+  help.go          ? help screen: helpState (bubbles viewport); helpSections = Marks (cursor/pick legend), Actions (action.All() + binding().show),
+                   Keys by pane (static paneKeys table), laid out by helpContent in one shared key column with descriptions ansi.Wrap'd and hung
+                   under their column; the bottom edge reads "↓ more · esc closes" until the end, then "esc closes"; opens outside focusText/focusSearch (or from the palette)
   keys.go          globalKeys: THE app-wide key-to-action table (tab, ctrl+o/y/s/e/f/t/k, pgup/pgdn, ctrl+c); handleKey looks keys
                    up here before any zone code, which takes ctrl+e/f/t/k from the textarea and textinput; footerKeys builds the
                    one footer from the entries that have a help label (whole entries, ctrl+c always last). keyEntry.action is the

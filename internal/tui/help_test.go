@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -66,7 +68,7 @@ func TestPaletteOpensHelpFromTheTextBar(t *testing.T) {
 func TestHelpListsEveryActionWithItsKey(t *testing.T) {
 	m := key(resize(testModel(t, 3), 200, 60), "tab", "?")
 	v := ansi.Strip(m.View())
-	for _, want := range []string{"Help", "Save cursor font as SVG", "ctrl+s", "Pick or unpick cursor font", "space", "Keys and help", "Fonts list", "Filters", "Style"} {
+	for _, want := range []string{"Help", "Save cursor font as SVG", "ctrl+s", "Pick or unpick cursor font", "space", "Keys and help", "Fonts list", "Filters", "Style", "Marks", "scroll half a page", "Keys by pane"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("help lacks %q", want)
 		}
@@ -80,14 +82,14 @@ func TestHelpFitsAndScrollsOnShortTerminals(t *testing.T) {
 	}
 	m := key(resize(testModel(t, 3), 80, 20), "tab", "?")
 	top := ansi.Strip(m.View())
-	if strings.Contains(top, "closes") {
-		t.Fatal("the last line should be off screen at 80x20")
+	if strings.Contains(top, "close the pane") {
+		t.Fatal("the last line should be off screen with the more hint at 80x20")
 	}
 	for range 10 {
 		m = key(m, "pgdown")
 	}
 	end := ansi.Strip(m.View())
-	if !strings.Contains(end, "closes") || end == top {
+	if !strings.Contains(end, "close the pane") || end == top {
 		t.Fatal("pgdown never reached the last line")
 	}
 	assertFits(t, m, 20)
@@ -103,5 +105,37 @@ func TestHelpFitsAndScrollsOnShortTerminals(t *testing.T) {
 	}
 	if !m.help.view.AtTop() {
 		t.Error("k never reached the top")
+	}
+}
+
+func TestHelpContentIsOneAlignedColumn(t *testing.T) {
+	kw := 0
+	for _, r := range helpRows() {
+		kw = max(kw, lipgloss.Width(r.keys))
+	}
+	for _, w := range []int{200, 100, 80, 46} {
+		avail := w - 6
+		for _, l := range strings.Split(ansi.Strip(helpContent(avail)), "\n") {
+			if ansi.StringWidth(l) > avail {
+				t.Errorf("avail %d: line %q is %d wide", avail, l, ansi.StringWidth(l))
+			}
+		}
+	}
+	lines := strings.Split(ansi.Strip(helpContent(200-6)), "\n")
+	for _, r := range helpRows() {
+		want := "  " + ansi.Strip(r.keys) + strings.Repeat(" ", kw-lipgloss.Width(r.keys)) + "  " + r.what
+		if !slices.Contains(lines, want) {
+			t.Errorf("no row %q", want)
+		}
+	}
+	if !strings.HasPrefix(lines[0], "Marks") {
+		t.Errorf("first line %q", lines[0])
+	}
+}
+
+func TestHelpWrapsDescriptionsUnderTheirColumn(t *testing.T) {
+	joined := strings.Join(strings.Fields(ansi.Strip(helpContent(40))), " ")
+	if !strings.Contains(joined, "change Align, Mode, slider") {
+		t.Error("wrapped description lost words")
 	}
 }

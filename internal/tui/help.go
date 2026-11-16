@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jnaO/figlet-font-preview/internal/action"
 )
@@ -17,7 +18,7 @@ type helpState struct {
 
 type paneKey struct{ keys, what string }
 
-// paneKeys is the per-pane reference the help screen shows beside the
+// paneKeys is the per-pane reference the help screen lists after the
 // actions; the README Keys table is the full list.
 var paneKeys = []struct {
 	pane string
@@ -25,7 +26,8 @@ var paneKeys = []struct {
 }{
 	{"Anywhere", []paneKey{
 		{"tab shift+tab", "next, previous pane"},
-		{"pgup pgdn ctrl+u ctrl+d", "scroll the preview"},
+		{"pgup pgdn", "scroll the preview a page"},
+		{"ctrl+u ctrl+d", "scroll half a page"},
 	}},
 	{"Text", []paneKey{
 		{"enter", "new line"},
@@ -56,8 +58,6 @@ var paneKeys = []struct {
 		{"ctrl+o", "close the pane"},
 	}},
 }
-
-const helpSentence = "› is the cursor: copy and SVG use it. ● is a pick: it narrows the preview."
 
 // openHelp shows the help screen; opening it closes the palette.
 func (m *Model) openHelp() tea.Cmd {
@@ -101,60 +101,78 @@ func (m Model) helpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// helpActionLines is the Actions column: each group's heading, then its
-// actions with their keys.
-func helpActionLines() []string {
-	acts := action.All()
-	kw := 0
-	for _, a := range acts {
-		e, _ := binding(a.ID)
-		kw = max(kw, lipgloss.Width(e.show))
-	}
-	lines := []string{styles.label.Render("Actions")}
-	group := ""
-	for _, a := range acts {
-		if a.Group != group {
-			group = a.Group
-			lines = append(lines, "", styles.header.Render(group))
-		}
-		e, _ := binding(a.ID)
-		lines = append(lines, "  "+e.show+strings.Repeat(" ", kw-lipgloss.Width(e.show))+"  "+a.Title)
-	}
-	return lines
+type helpGroup struct {
+	heading string
+	rows    []paneKey
 }
 
-// helpPaneLines is the Keys by pane column.
-func helpPaneLines() []string {
-	kw := 0
-	for _, p := range paneKeys {
-		for _, k := range p.keys {
-			kw = max(kw, lipgloss.Width(k.keys))
-		}
-	}
-	lines := []string{styles.label.Render("Keys by pane")}
-	for _, p := range paneKeys {
-		lines = append(lines, "", styles.header.Render(p.pane))
-		for _, k := range p.keys {
-			lines = append(lines, "  "+k.keys+strings.Repeat(" ", kw-lipgloss.Width(k.keys))+"  "+k.what)
-		}
-	}
-	return lines
+type helpSection struct {
+	label  string
+	groups []helpGroup
 }
 
-// helpContent lays the two columns side by side when both fit in avail
-// columns, else stacks them, and appends the legend.
+// helpSections is the help list in order: Marks, Actions, Keys by pane.
+func helpSections() []helpSection {
+	marks := helpSection{"Marks", []helpGroup{{rows: []paneKey{
+		{styles.cursor.Render("›"), "the cursor: copy and SVG use it"},
+		{styles.selected.Render("●"), "a pick: narrows the preview"},
+	}}}}
+	acts := helpSection{label: "Actions"}
+	for _, a := range action.All() {
+		if n := len(acts.groups); n == 0 || acts.groups[n-1].heading != a.Group {
+			acts.groups = append(acts.groups, helpGroup{heading: a.Group})
+		}
+		g := &acts.groups[len(acts.groups)-1]
+		e, _ := binding(a.ID)
+		g.rows = append(g.rows, paneKey{e.show, a.Title})
+	}
+	panes := helpSection{label: "Keys by pane"}
+	for _, p := range paneKeys {
+		panes.groups = append(panes.groups, helpGroup{p.pane, p.keys})
+	}
+	return []helpSection{marks, acts, panes}
+}
+
+// helpRows is every row of every section.
+func helpRows() []paneKey {
+	var rows []paneKey
+	for _, s := range helpSections() {
+		for _, g := range s.groups {
+			rows = append(rows, g.rows...)
+		}
+	}
+	return rows
+}
+
+// helpContent lays every section out in one key column and one description
+// column; descriptions wrap inside avail columns and hang under the column.
 func helpContent(avail int) string {
-	left, right := strings.Join(helpActionLines(), "\n"), strings.Join(helpPaneLines(), "\n")
-	var cols string
-	if lipgloss.Width(left)+3+lipgloss.Width(right) <= avail {
-		cols = lipgloss.JoinHorizontal(lipgloss.Top, left, "   ", right)
-	} else {
-		cols = left + "\n\n" + right
+	kw := 0
+	for _, r := range helpRows() {
+		kw = max(kw, lipgloss.Width(r.keys))
 	}
-	w := max(lipgloss.Width(cols), lipgloss.Width(legendLine()))
-	w = min(w, avail)
-	note := styles.dim.Width(w).Render(helpSentence + " esc closes; ↑ ↓ scroll.")
-	return cols + "\n\n" + legendLine() + "\n" + note
+	dw := max(avail-4-kw, 1)
+	hang := strings.Repeat(" ", 4+kw)
+	var lines []string
+	for i, s := range helpSections() {
+		if i > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, styles.label.Render(s.label))
+		for _, g := range s.groups {
+			if g.heading != "" {
+				lines = append(lines, "", styles.header.Render(g.heading))
+			}
+			for _, r := range g.rows {
+				desc := strings.Split(ansi.Wrap(r.what, dw, ""), "\n")
+				lines = append(lines, "  "+r.keys+strings.Repeat(" ", kw-lipgloss.Width(r.keys))+"  "+desc[0])
+				for _, d := range desc[1:] {
+					lines = append(lines, hang+d)
+				}
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // syncHelp sizes the viewport to the screen and loads the content, and
