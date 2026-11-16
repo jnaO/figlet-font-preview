@@ -50,6 +50,7 @@ figlet-font-preview $'two\nlines'         # multiline initial text
 figlet-font-preview --font-dir ~/fonts    # also search ~/fonts (repeatable)
 figlet-font-preview --center Hello        # centre the text in the preview
 figlet-font-preview --right Hello         # right-align it; the last of --center / --right wins
+figlet-font-preview --version             # banner on a terminal; plain version line otherwise
 ```
 
 ### Which fonts are shown
@@ -135,4 +136,4 @@ Push a `vX.Y.Z` tag. The release workflow runs GoReleaser (`.goreleaser.yaml`), 
 
 ## License
 
-[MIT](LICENSE). Font files are not part of this project and keep their own licenses.
+[MIT](LICENSE). Font files are not part of this project and keep their own licenses, except three FIGlet fonts (banner, small, mini) embedded for the `--version` banner under BSD-3; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).

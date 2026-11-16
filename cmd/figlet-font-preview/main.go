@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/term"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/display"
@@ -77,6 +78,23 @@ func registerFlags(fs *flag.FlagSet) (dirs *dirList, align *display.Align, showV
 	return dirs, align, showVersion
 }
 
+// printVersion prints line, as a centred banner above it when stdout is a
+// terminal whose width fits a banner font.
+func printVersion(roots []string, line string) {
+	fd := os.Stdout.Fd()
+	if !term.IsTerminal(fd) {
+		fmt.Println(line)
+		return
+	}
+	width, _, err := term.GetSize(fd)
+	if err != nil {
+		fmt.Println(line)
+		return
+	}
+	f, _ := bannerFont(catalog.Discover(roots), width)
+	fmt.Println(strings.Join(versionLines(f, line, width), "\n"))
+}
+
 func main() {
 	dirs, align, showVersion := registerFlags(flag.CommandLine)
 	flag.Usage = func() {
@@ -85,9 +103,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nDefault font roots: %s\n", strings.Join(catalog.DefaultRoots(), ", "))
 	}
 	flag.Parse()
+	roots := append(catalog.DefaultRoots(), *dirs...)
 	if *showVersion {
 		info, ok := debug.ReadBuildInfo()
-		fmt.Println("figlet-font-preview", resolveVersion(version, info, ok))
+		printVersion(roots, "figlet-font-preview "+resolveVersion(version, info, ok))
 		return
 	}
 
@@ -96,7 +115,7 @@ func main() {
 		text = strings.Join(flag.Args(), " ")
 	}
 
-	cat := catalog.Discover(append(catalog.DefaultRoots(), *dirs...))
+	cat := catalog.Discover(roots)
 	p := tea.NewProgram(tui.New(cat, text, *align), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -12,7 +12,7 @@ cmd/figlet-font-preview → tui → display → fontclass → catalog → figfon
                        │   └──→ action
                        ├──→ catalog
                        ├──→ svgexport → paint
-                       └──→ figfont (Trim, TrimBlock)
+                       └──→ figfont (Parse, Render, Center, Trim, TrimBlock)
 ```
 
 Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport ./internal/action | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
@@ -24,8 +24,12 @@ Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go
                                   HOMEBREW_TAP_TOKEN and the five MACOS_SIGN_* / MACOS_NOTARY_* secrets)
 .goreleaser.yaml                  release builds (CGO off; darwin/linux/windows × amd64/arm64; -X main.version), darwin
                                   sign + notarize (quill, after build and before archiving; off in snapshots), archives
-                                  (with man/ and completions/), checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency, manpage + bash/zsh/fish completion stanzas)
-cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center/--right write one display.Align, the last one given wins, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir
+                                  (with man/, completions/ and THIRD_PARTY_NOTICES), checksums, homebrew_casks → jnaO/homebrew-tap (HOMEBREW_TAP_TOKEN, figlet dependency, manpage + bash/zsh/fish completion stanzas)
+cmd/figlet-font-preview/main.go   registerFlags(fs) defines the flags (--font-dir repeatable, --center/--right write one display.Align, the last one given wins, --version: -X main.version ldflag, else build-info module version, else "dev"), positional text (default "Hello"); roots = catalog.DefaultRoots() + --font-dir; --version on a terminal prints the banner (printVersion: term.IsTerminal/GetSize, else the plain line)
+cmd/figlet-font-preview/banner.go the --version banner: bannerFont(cat, width) picks AMC AAA01 (from the roots, measured at call time, used when widestWord fits), else the
+                                  embedded banner/small/mini by bannerTable (min width = widestWord, drift-tested), else none; versionLines centres and appends the version
+cmd/figlet-font-preview/fonts/    banner.flf, small.flf, mini.flf: FIGlet 2.2.5 fonts, byte for byte, go:embed'd (BSD-3 notice in THIRD_PARTY_NOTICES)
+THIRD_PARTY_NOTICES               credits and the FIGlet licence for the embedded fonts; listed in the goreleaser archives
 man/figlet-font-preview.1         man(7) page: OPTIONS/FILES/KEYS mirror README's Usage, Fonts and Keys sections; a drift test in
                                   cmd/figlet-font-preview/main_test.go checks every flag and font root appears. Edit with README
 completions/figlet-font-preview.{bash,zsh,fish}

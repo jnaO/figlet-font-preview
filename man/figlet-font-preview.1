@@ -49,6 +49,9 @@ is accepted too.
 .TP
 .B \-\-version
 Print the version and exit.
+On a terminal, print a "FIGLET FONT PREVIEW" banner centred to the terminal width, with the version beneath.
+The font is AMC AAA01 when it is installed and fits, otherwise the widest built\-in FIGlet font that fits (banner, small, mini).
+When even mini does not fit (below 23 columns), or output is not a terminal, print only the version line.
 .TP
 .BR \-h ", " \-\-help
 Print the usage text, including the default font roots, and exit.
