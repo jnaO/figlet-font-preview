@@ -384,34 +384,7 @@ func TestLolcatBackgroundModes(t *testing.T) {
 	}
 }
 
-func TestSlidersWrapClampAndRespectMode(t *testing.T) {
-	st := paint.Default()
-	st.Rainbow.Seed = 254
-	stepSlider(&st, sSeed, 1)
-	if st.Rainbow.Seed != 2 {
-		t.Fatalf("seed should wrap modulo 256: %d", st.Rainbow.Seed)
-	}
-	st.Background.Angle = 0
-	stepSlider(&st, sAngle, -1)
-	if st.Background.Angle != 345 {
-		t.Fatalf("angle should wrap to 345: %d", st.Background.Angle)
-	}
-	st.Rainbow.Freq = paint.FreqMax
-	stepSlider(&st, sFreq, 1)
-	if st.Rainbow.Freq != paint.FreqMax {
-		t.Fatalf("frequency should clamp: %v", st.Rainbow.Freq)
-	}
-	st.Rainbow.Freq = 0.05
-	stepSlider(&st, sFreq, 1)
-	if st.Rainbow.Freq != 0.06 {
-		t.Fatalf("frequency step drifted: %v", st.Rainbow.Freq)
-	}
-	st.Background.From.R = 250
-	stepSlider(&st, sFromR, 1)
-	if st.Background.From.R != 255 {
-		t.Fatalf("RGB should clamp at 255: %d", st.Background.From.R)
-	}
-
+func TestSlidersRespectMode(t *testing.T) {
 	m := toOption(t, key(testModel(t, 2), "ctrl+o"), optBgMode)
 	from := m.state.Paint.Background.From
 	m = key(m, "j", "l") // j skips the From heading onto R

@@ -11,6 +11,7 @@ cmd/figlet-font-preview → tui → display → fontclass → catalog → figfon
                        │   │       ├──→ catalog
                        │   │       └──→ paint
                        │   ├──→ action
+                       │   ├──→ controls → paint
                        │   └──→ newfile
                        ├──→ catalog
                        ├──→ svgexport → paint
@@ -64,6 +65,9 @@ internal/svgexport/svg.go
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
 internal/newfile/newfile.go
                    Write(dir, base, ext, data): never-overwrite file writer (O_EXCL; -2, -3 … suffixes; returns the absolute path); SafeName(name) maps unsafe file-name characters to '_'
+internal/controls/slider.go
+                   Slider (Seed … Angle) and Slider.Spec(): Spec{Label, Lo, Hi, Step, Period, Format} with Enabled(paint.Mode) and Get(*paint.Style);
+                   StepSlider(st, k, dir) (wraps when Period > 0, else clamps); FromActive/ToActive: which background modes use the From/To colour
 internal/display/display.go
                    State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule;
                    Lines(font, width) and Block(catalog, name, width): THE cursor-font render (Align.Apply over Font.Render; Block trims with figfont.TrimBlock and returns Top/Left, or the footer error "no font under the cursor" / "<name> is not loaded")
@@ -95,8 +99,7 @@ internal/tui/
                    optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the
                    right-hand column toggled by global ctrl+o (toggleStyle; slides in/out via slideMsg, panelW feeds previewWidth;
                    refused below styleFitWidth = 47), itemsChanged (keeps the cursor font), buildIndex/indexMsg
-  paintopts.go     colour rows of the Style pane: slider specs (range, step, wrap period, which background modes
-                   enable them), stepSlider, slider/heading/mode line rendering
+  paintopts.go     colour rows of the Style pane (paintRows) and the slider/heading/align/mode line rendering; the slider specs are controls.Slider
   copy.go          global ctrl+y copyCursor (State.Block at the preview width, THE cursor-font render, shared with export) → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)

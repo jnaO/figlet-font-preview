@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/controls"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
@@ -34,8 +35,8 @@ type optRow struct {
 	kind   optKind
 	axis   fontclass.Axis
 	value  int
-	label  string // optHeading
-	slider slider // optSlider
+	label  string          // optHeading
+	slider controls.Slider // optSlider
 }
 
 func (r optRow) selectable() bool { return r.kind != optAxis && r.kind != optHeading }
@@ -222,8 +223,8 @@ func (m *Model) applyOption(r optRow, dir int) {
 		m.refreshPreview(false)
 		return
 	case optSlider:
-		if sliders[r.slider].enabled(s.Paint.Background.Mode) {
-			stepSlider(&s.Paint, r.slider, dir)
+		if r.slider.Spec().Enabled(s.Paint.Background.Mode) {
+			controls.StepSlider(&s.Paint, r.slider, dir)
 			m.refreshPreview(false)
 		}
 		return
