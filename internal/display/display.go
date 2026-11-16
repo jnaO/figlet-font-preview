@@ -4,10 +4,12 @@
 package display
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/sahilm/fuzzy"
 
+	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/figfont"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
@@ -353,4 +355,32 @@ func set(names []string) map[string]bool {
 		m[n] = true
 	}
 	return m
+}
+
+// Lines renders s.Text in f at width, aligned the way the preview lays it out.
+func (s *State) Lines(f *figfont.Font, width int) []string {
+	return s.Align.Apply(f.Render(s.Text, width), f.Height, width)
+}
+
+// Block is a font's Lines trimmed of blank rows and columns; Top and Left
+// are the rows and columns trimmed off.
+type Block struct {
+	Name      string
+	Lines     []string
+	Top, Left int
+}
+
+// Block renders the named font as Lines and trims it. The error text is for a
+// front-end's status line: the name is not in cat, or its font is not loaded.
+func (s *State) Block(cat *catalog.Catalog, name string, width int) (Block, error) {
+	e, ok := cat.Get(name)
+	if !ok {
+		return Block{}, errors.New("no font under the cursor")
+	}
+	f, err := e.Font()
+	if err != nil || f == nil {
+		return Block{}, errors.New(name + " is not loaded")
+	}
+	lines, top, left := figfont.TrimBlock(s.Lines(f, width))
+	return Block{name, lines, top, left}, nil
 }

@@ -8,14 +8,18 @@ Planning lives in GitHub issues on `jnaO/figlet-font-preview`: Stories carry the
 
 ```
 cmd/figlet-font-preview → tui → display → fontclass → catalog → figfont
+                       │   │       ├──→ catalog
                        │   │       └──→ paint
-                       │   └──→ action
+                       │   ├──→ action
+                       │   ├──→ controls → display
+                       │   │          └──→ paint
+                       │   └──→ newfile
                        ├──→ catalog
                        ├──→ svgexport → paint
                        └──→ figfont (Parse, Render, Center, Trim, TrimBlock)
 ```
 
-Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps ./internal/figfont ./internal/catalog ./internal/display ./internal/fontclass ./internal/paint ./internal/svgexport ./internal/action | grep charmbracelet` prints nothing). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
+Nothing below `internal/tui` imports Bubble Tea, bubbles or lipgloss (check: `go list -deps $(go list ./internal/... | grep -v /internal/tui$) | grep charmbracelet` prints nothing; it covers every package added below `internal/tui` automatically). A second front-end (e.g. a desktop GUI) drives `display.State` and `catalog.Catalog` directly and reads `action.All()` for its menus.
 
 ## Map
 
@@ -46,7 +50,8 @@ internal/catalog/catalog.go
                    SystemRoots (package-manager dirs, empty on Windows; the only roots tests use), DefaultRoots() = SystemRoots + ~/figlet-fonts;
                    Discover(roots): recursive walk following symlinks, *.flf/*.tlf only, dedupe by real path
                    (Entry.Root = index of the first root that reached the file),
-                   unique names; Entry.Load (once, concurrent-safe), Entry.State/Font (non-blocking), Preload(workers)
+                   unique names; Entry.Load (once, concurrent-safe), Entry.State/Font (non-blocking), Preload(workers);
+                   NoFontsMessage(roots, goos, addHint): the empty-catalog text (searched roots, per-GOOS install hint, the front-end's addHint line, FontSources mirrored in README.md, disclaimer)
 internal/fontclass/
   analyze.go       Analyze(font) Profile: Stroke/Weight/Size/Slant from fixed probes; Axes() is THE axis list
   index.go         Index: duplicate groups + representative, facet values, Similar(name) by fingerprint
@@ -59,8 +64,16 @@ internal/action/action.go
 internal/svgexport/svg.go
                    Render(lines, top, left, style): one <tspan> per non-space rune at its own x, coloured
                    Rainbow.At(top+r, left+c) so it matches the preview cell; background rect/gradient, none in theme
+internal/newfile/newfile.go
+                   Write(dir, base, ext, data): never-overwrite file writer (O_EXCL; -2, -3 … suffixes; returns the absolute path); SafeName(name) maps unsafe file-name characters to '_'
+internal/controls/
+  rows.go          Kind (KindAlign … KindClear), Row{Kind, Axis, Value, Label, Slider} with Selectable(); FilterRows() (Collapse, Group by, Similar, a facet row per axis value, Clear) and StyleRows() (Align, then the colour rows)
+  apply.go         Apply(state, row, dir, cursor) Effect: THE rule for what a row does (filter rows are inert before the index; dir < 0 does nothing for Collapse/Similar/Facet/Clear; Group by cycles NoGroup and each axis; Similar anchors on cursor); Effect = NoEffect | PreviewChanged | ItemsChanged
+  slider.go        Slider (Seed … Angle) and Slider.Spec(): Spec{Label, Lo, Hi, Step, Period, Format} with Enabled(paint.Mode) and Get(*paint.Style);
+                   StepSlider(st, k, dir) (wraps when Period > 0, else clamps); FromActive/ToActive: which background modes use the From/To colour
 internal/display/display.go
-                   State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule
+                   State: text, Align (left/centre/right; Align.Apply maps to figfont.Center/Right), Paint (paint.Style), query, selection; Sidebar() and RenderSet(); THE render-set rule;
+                   Lines(font, width) and Block(catalog, name, width): THE cursor-font render (Align.Apply over Font.Render; Block trims with figfont.TrimBlock and returns Top/Left, or the footer error "no font under the cursor" / "<name> is not loaded")
 internal/tui/
   tui.go           Bubble Tea model: framed, labelled text bar (textBar; grows to maxTextLines rows), left column (sidebarView: fontsView = search, count,
                    cursor/pick legend, list; filtersView = filter window, each in its own frame), unframed preview viewport, footer.
@@ -84,20 +97,17 @@ internal/tui/
                    internal/action id (empty for navigation); zoneKeys holds the actions a zone handles itself (space, x, ?;
                    no keys, so lookupKey skips them); binding(id) finds an action's entry; a test checks every action.All() id
                    has one binding
-  options.go       row vocabulary shared by both panes (optRow, optKind, rowCursor, applyOption, optionLine(row, cursor, width)):
-                   filterRows (Fonts pane: Collapse, Group by, Similar to the cursor font, one row per facet value, Clear filters;
-                   optAxis/optHeading rows are not selectable) and styleRows (the Align cycler, then paintRows). Style is the
+  options.go       the panes' cursor and rendering: rowCursor, rowKey, applyOption (calls controls.Apply with the cursor font name and
+                   turns its Effect into refreshPreview/itemsChanged), optionLine(row, cursor, width); the rows are controls.FilterRows
+                   (Fonts pane) and controls.StyleRows. Style is the
                    right-hand column toggled by global ctrl+o (toggleStyle; slides in/out via slideMsg, panelW feeds previewWidth;
                    refused below styleFitWidth = 47), itemsChanged (keeps the cursor font), buildIndex/indexMsg
-  paintopts.go     colour rows of the Style pane: slider specs (range, step, wrap period, which background modes
-                   enable them), stepSlider, slider/heading/mode line rendering
-  copy.go          cursorBlock: THE cursor-font render shared by copy and export (preview width, State.Align.Apply, figfont.TrimBlock);
-                   global ctrl+y copyCursor → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
+  paintopts.go     the Style pane's slider/heading/align/mode line rendering (rows and slider specs are in controls)
+  copy.go          global ctrl+y copyCursor (State.Block at the preview width, THE cursor-font render, shared with export) → writeClipboard (atotto/clipboard: pbcopy on macOS; a var tests replace);
                    setStatus footer messages clear after statusFor
-  export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → writeNew (O_EXCL, -2, -3 … suffixes)
-                   in exportDir (a var tests replace); safeName for font names with '/'
-  nofonts.go       noFontsMessage: the empty-catalog preview (searched roots, per-GOOS install hint, fontSources
-                   links mirrored in README.md, disclaimer)
+  export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)
+                   in exportDir (a var tests replace)
+  nofonts.go       addFolderHint: the CLI's add-folder line, passed to catalog.NoFontsMessage by previewContent
   lolcat.go        the cursor font's colouring from State.Paint: per-rune Rainbow, background flat (theme tint or From)
                    or per cell over preview width × block rows (linear/radial); bgStyle for its header row
   styles.go        all lipgloss styles (adaptive light/dark); tintColour + themeSeed (background sliders start at the tint)

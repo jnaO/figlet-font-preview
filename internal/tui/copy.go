@@ -7,8 +7,6 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/jnaO/figlet-font-preview/internal/figfont"
 )
 
 const statusFor = 2 * time.Second
@@ -25,40 +23,14 @@ type copiedMsg struct {
 // clearStatusMsg clears the footer status set with the same id.
 type clearStatusMsg struct{ id int }
 
-// block is the cursor font's render as the preview lays it out (width,
-// centring), trimmed; top and left are the rows and columns trimmed off.
-type block struct {
-	name      string
-	lines     []string
-	top, left int
-}
-
-// cursorBlock is THE cursor-font render shared by copy and export. When there
-// is nothing to use it returns a footer message instead.
-func (m Model) cursorBlock() (block, string) {
-	name := m.cursorName()
-	e, ok := m.cat.Get(name)
-	if !ok {
-		return block{}, "no font under the cursor"
-	}
-	f, err := e.Font()
-	if err != nil || f == nil {
-		return block{}, name + " is not loaded"
-	}
-	w := m.previewWidth()
-	lines := m.state.Align.Apply(f.Render(m.state.Text, w), f.Height, w)
-	out, top, left := figfont.TrimBlock(lines)
-	return block{name, out, top, left}, ""
-}
-
 // copyCursor copies the cursor block as plain text.
 func (m *Model) copyCursor() tea.Cmd {
-	b, msg := m.cursorBlock()
-	if msg != "" {
-		return m.setStatus(msg)
+	b, err := m.state.Block(m.cat, m.cursorName(), m.previewWidth())
+	if err != nil {
+		return m.setStatus(err.Error())
 	}
-	text := strings.Join(b.lines, "\n") + "\n"
-	return func() tea.Msg { return copiedMsg{b.name, writeClipboard(text)} }
+	text := strings.Join(b.Lines, "\n") + "\n"
+	return func() tea.Msg { return copiedMsg{b.Name, writeClipboard(text)} }
 }
 
 // setStatus shows s in the footer until statusFor passes.

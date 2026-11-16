@@ -9,36 +9,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/controls"
 	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
-	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
-
-type optKind int
-
-const (
-	optAlign optKind = iota
-	optCollapse
-	optGroupBy
-	optSimilar
-	optAxis    // non-selectable axis label
-	optHeading // non-selectable free-text label
-	optSlider
-	optBgMode
-	optFacet
-	optClear
-)
-
-// optRow is one row of the Fonts pane filters or the Style pane.
-type optRow struct {
-	kind   optKind
-	axis   fontclass.Axis
-	value  int
-	label  string // optHeading
-	slider slider // optSlider
-}
-
-func (r optRow) selectable() bool { return r.kind != optAxis && r.kind != optHeading }
 
 const (
 	styleWidth = 32 // Style pane content columns, excluding its frame
@@ -83,7 +57,7 @@ func (m *Model) toggleStyle() tea.Cmd {
 	}
 	m.panelOpen = true
 	m.prevFocus = m.focus
-	m.styleCur.move(styleRows(), 0, m.styleHeight())
+	m.styleCur.move(controls.StyleRows(), 0, m.styleHeight())
 	cmds := []tea.Cmd{m.setFocus(focusStyle), slide()}
 	if m.fontsHidden() {
 		m.layout()
@@ -122,29 +96,12 @@ func buildIndex(cat *catalog.Catalog) tea.Cmd {
 	return func() tea.Msg { return indexMsg{fontclass.Build(cat)} }
 }
 
-// filterRows lists the Fonts pane's filter rows in display order.
-func filterRows() []optRow {
-	rows := []optRow{{kind: optCollapse}, {kind: optGroupBy}, {kind: optSimilar}}
-	for _, a := range fontclass.Axes() {
-		rows = append(rows, optRow{kind: optAxis, axis: a.Axis})
-		for v := range a.Values {
-			rows = append(rows, optRow{kind: optFacet, axis: a.Axis, value: v})
-		}
-	}
-	return append(rows, optRow{kind: optClear})
-}
-
-// styleRows lists the Style pane's rows in display order.
-func styleRows() []optRow {
-	return append([]optRow{{kind: optAlign}}, paintRows()...)
-}
-
 // rowCursor is a selectable-row cursor and scroll offset over a row list.
 type rowCursor struct{ cursor, offset int }
 
 // move moves the cursor by d selectable rows (0 just snaps it onto a
 // selectable row) and keeps it within a window of height rows.
-func (c *rowCursor) move(rows []optRow, d, height int) {
+func (c *rowCursor) move(rows []controls.Row, d, height int) {
 	step := 1
 	if d < 0 {
 		step = -1
@@ -152,7 +109,7 @@ func (c *rowCursor) move(rows []optRow, d, height int) {
 	i := max(0, min(c.cursor, len(rows)-1))
 	for moved := 0; moved < max(d, -d); moved++ {
 		j := i + step
-		for j >= 0 && j < len(rows) && !rows[j].selectable() {
+		for j >= 0 && j < len(rows) && !rows[j].Selectable() {
 			j += step
 		}
 		if j < 0 || j >= len(rows) {
@@ -160,13 +117,13 @@ func (c *rowCursor) move(rows []optRow, d, height int) {
 		}
 		i = j
 	}
-	for !rows[i].selectable() {
+	for !rows[i].Selectable() {
 		i++
 	}
 	c.cursor = i
 	if c.cursor < c.offset {
 		c.offset = c.cursor
-		if c.cursor > 0 && !rows[c.cursor-1].selectable() {
+		if c.cursor > 0 && !rows[c.cursor-1].Selectable() {
 			c.offset-- // keep the axis label above its first value
 		}
 	}
@@ -177,7 +134,7 @@ func (c *rowCursor) move(rows []optRow, d, height int) {
 }
 
 // rowKey applies the shared row keys to c and reports whether key was one.
-func (m *Model) rowKey(c *rowCursor, rows []optRow, height int, key string) bool {
+func (m *Model) rowKey(c *rowCursor, rows []controls.Row, height int, key string) bool {
 	switch key {
 	case "up", "k":
 		c.move(rows, -1, height)
@@ -198,7 +155,7 @@ func (m Model) handleFiltersKey(key string) (tea.Model, tea.Cmd) {
 	case "esc":
 		return m, m.setFocus(focusList)
 	}
-	m.rowKey(&m.filterCur, filterRows(), m.filterHeight(), key)
+	m.rowKey(&m.filterCur, controls.FilterRows(), m.filterHeight(), key)
 	return m, nil
 }
 
@@ -207,68 +164,18 @@ func (m Model) handleStyleKey(key string) (tea.Model, tea.Cmd) {
 	case "esc":
 		return m, m.focusFonts(focusList)
 	}
-	m.rowKey(&m.styleCur, styleRows(), m.styleHeight(), key)
+	m.rowKey(&m.styleCur, controls.StyleRows(), m.styleHeight(), key)
 	return m, nil
 }
 
-// applyOption toggles a row; dir only matters for Group by.
-func (m *Model) applyOption(r optRow, dir int) {
-	s := m.state
-	ready := s.Index() != nil
-	switch r.kind {
-	case optAlign:
-		n := display.NumAligns
-		s.Align = display.Align((int(s.Align) + dir + n) % n)
+// applyOption applies a row and refreshes what it changed.
+func (m *Model) applyOption(r controls.Row, dir int) {
+	switch controls.Apply(m.state, r, dir, m.cursorName()) {
+	case controls.PreviewChanged:
 		m.refreshPreview(false)
-		return
-	case optSlider:
-		if sliders[r.slider].enabled(s.Paint.Background.Mode) {
-			stepSlider(&s.Paint, r.slider, dir)
-			m.refreshPreview(false)
-		}
-		return
-	case optBgMode:
-		n := int(paint.NumModes)
-		s.Paint.Background.Mode = paint.Mode((int(s.Paint.Background.Mode) + dir + n) % n)
-		m.refreshPreview(false)
-		return
-	case optCollapse:
-		if !ready || dir < 0 {
-			return
-		}
-		s.Collapse = !s.Collapse
-	case optGroupBy:
-		if !ready {
-			return
-		}
-		n := int(fontclass.NumAxes) + 1 // NoGroup plus each axis
-		s.GroupBy = fontclass.Axis((int(s.GroupBy)+1+dir+n)%n - 1)
-	case optSimilar:
-		if !ready || dir < 0 {
-			return
-		}
-		switch {
-		case s.Similar() != "":
-			s.SetSimilar("")
-		case m.cursorName() != "":
-			s.SetSimilar(m.cursorName())
-		default:
-			return
-		}
-	case optFacet:
-		if !ready || dir < 0 {
-			return
-		}
-		s.ToggleFilter(r.axis, r.value)
-	case optClear:
-		if !ready || dir < 0 {
-			return
-		}
-		s.ClearFilters()
-	default:
-		return
+	case controls.ItemsChanged:
+		m.itemsChanged()
 	}
-	m.itemsChanged()
 }
 
 // itemsChanged rebuilds the sidebar after the universe changed, keeping the
@@ -294,7 +201,7 @@ func (m Model) styleHeight() int { return max(m.bodyHeight()-2, 1) }
 // styleView renders the framed pane, cropped to the slide's current width.
 func (m Model) styleView() string {
 	var lines []string
-	rows := styleRows()
+	rows := controls.StyleRows()
 	end := min(m.styleCur.offset+m.styleHeight(), len(rows))
 	for i := m.styleCur.offset; i < end; i++ {
 		lines = append(lines, m.optionLine(rows[i], i == m.styleCur.cursor && m.focus == focusStyle, styleWidth))
@@ -304,7 +211,7 @@ func (m Model) styleView() string {
 }
 
 // optionLine renders a row for a pane width columns wide.
-func (m Model) optionLine(r optRow, cursor bool, width int) string {
+func (m Model) optionLine(r controls.Row, cursor bool, width int) string {
 	s := m.state
 	ready := s.Index() != nil
 	check := func(on bool) string {
@@ -315,15 +222,15 @@ func (m Model) optionLine(r optRow, cursor bool, width int) string {
 	}
 	pending := styles.dim.Render("analysing…")
 	var line string
-	switch r.kind {
-	case optAlign:
+	switch r.Kind {
+	case controls.KindAlign:
 		line = alignLine(s.Align)
-	case optCollapse:
+	case controls.KindCollapse:
 		line = check(s.Collapse) + " Collapse duplicates"
 		if !ready {
 			line = "    Collapse  " + pending
 		}
-	case optGroupBy:
+	case controls.KindGroupBy:
 		group := "none"
 		if s.GroupBy != display.NoGroup {
 			group = fontclass.Axes()[s.GroupBy].Name
@@ -332,7 +239,7 @@ func (m Model) optionLine(r optRow, cursor bool, width int) string {
 		if !ready {
 			line = "    Group by  " + pending
 		}
-	case optSimilar:
+	case controls.KindSimilar:
 		switch {
 		case !ready:
 			line = "    Similar   " + pending
@@ -343,24 +250,24 @@ func (m Model) optionLine(r optRow, cursor bool, width int) string {
 		default:
 			line = styles.dim.Render("    Similar to: pick a font")
 		}
-	case optAxis:
-		return "  " + styles.header.Render(fontclass.Axes()[r.axis].Name)
-	case optHeading:
-		return headingLine(&s.Paint, r.label)
-	case optSlider:
-		line = sliderLine(&s.Paint, r.slider)
-	case optBgMode:
+	case controls.KindAxis:
+		return "  " + styles.header.Render(fontclass.Axes()[r.Axis].Name)
+	case controls.KindHeading:
+		return headingLine(&s.Paint, r.Label)
+	case controls.KindSlider:
+		line = sliderLine(&s.Paint, r.Slider)
+	case controls.KindBgMode:
 		line = bgModeLine(&s.Paint)
-	case optFacet:
-		name := fontclass.Axes()[r.axis].Values[r.value]
+	case controls.KindFacet:
+		name := fontclass.Axes()[r.Axis].Values[r.Value]
 		if !ready {
 			line = "    " + styles.dim.Render(name)
 		} else {
-			count := fmt.Sprint(s.FacetCount(r.axis, r.value))
+			count := fmt.Sprint(s.FacetCount(r.Axis, r.Value))
 			pad := max(width-8-len([]rune(name))-len(count), 1)
-			line = check(s.Filtered(r.axis, r.value)) + " " + name + strings.Repeat(" ", pad) + styles.dim.Render(count)
+			line = check(s.Filtered(r.Axis, r.Value)) + " " + name + strings.Repeat(" ", pad) + styles.dim.Render(count)
 		}
-	case optClear:
+	case controls.KindClear:
 		line = "    Clear filters"
 		if !s.HasFilters() {
 			line = styles.dim.Render(line)
