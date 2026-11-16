@@ -3,7 +3,7 @@
 figlet-font-preview \- preview text in every installed FIGlet and TOIlet font
 .SH SYNOPSIS
 .B figlet-font-preview
-.RB [ \-\-center ]
+.RB [ \-\-center " | " \-\-right ]
 .RB [ \-\-font\-dir
 .IR DIR ]...
 .RI [ text ]
@@ -34,6 +34,10 @@ or
 .B \-\-center
 Centre the rendered text in the preview.
 .TP
+.B \-\-right
+Right-align the rendered text in the preview.
+The default is left; when several of these flags are given, the last one wins.
+.TP
 .BI \-\-font\-dir " DIR"
 Also search
 .I DIR
@@ -45,6 +49,9 @@ is accepted too.
 .TP
 .B \-\-version
 Print the version and exit.
+On a terminal, print a "FIGLET FONT PREVIEW" banner centred to the terminal width, with the version beneath.
+The font is AMC AAA01 when it is installed and fits, otherwise the widest built\-in FIGlet font that fits (banner, small, mini).
+When even mini does not fit (below 23 columns), or output is not a terminal, print only the version line.
 .TP
 .BR \-h ", " \-\-help
 Print the usage text, including the default font roots, and exit.
@@ -52,17 +59,62 @@ Print the usage text, including the default font roots, and exit.
 .SS Anywhere
 .TP
 .B tab\fR, \fBshift+tab
-Cycle focus: text, search, list.
+Cycle focus: Text, Fonts (landing on the list), Filters and the Style pane while it is open.
+While the Fonts pane is hidden, only the text and the Style pane take focus.
+The focused pane has an accent outline.
+.TP
+.B ctrl+e
+Focus the text.
+.TP
+.B ctrl+f
+Focus the search.
+When Style has hidden the Fonts pane, Style closes first.
+.TP
+.B ctrl+t
+Focus the filters, with the same rule.
+.TP
+.B ctrl+k
+Open the command palette: every action with its key, filtered as you type.
+.B up
+and
+.B down
+move,
+.B enter
+runs the action, and
+.B esc
+or
+.B ctrl+k
+closes it.
+Any other app key, such as
+.B ctrl+e
+or
+.BR ctrl+c ,
+closes the palette and does its job.
+.TP
+.B ?
+Open the help screen: the cursor and pick legend first, then every action with its key and the keys of each pane. The bottom edge of the box shows "more" with a down arrow while there is more below.
+It opens everywhere except the text and the search, where
+.B ?
+types a question mark.
+.BR up ", " down ", " j ", " k ", " pgup " and " pgdn
+scroll it, and
+.B esc
+or
+.B ?
+closes it.
+Other app keys close it and do their job.
 .TP
 .BR pgup ", " pgdn ", " ctrl+u ", " ctrl+d ", mouse wheel"
 Scroll the preview.
 .TP
 .B ctrl+o
-Open or close the options pane.
+Show or hide the Style pane.
+Below 79 columns the Fonts pane steps aside while Style is open and returns when it closes.
+Below 47 columns Style does not open.
 .TP
 .B ctrl+y
 Copy the cursor font's render to the clipboard as plain text,
-wrapped and centred as shown.
+wrapped and aligned as shown.
 .TP
 .B ctrl+s
 Save the cursor font's render as a coloured
@@ -72,13 +124,25 @@ An existing file is never overwritten; \-2, \-3, ... is added to the name.
 .TP
 .B ctrl+c
 Quit.
+.B esc
+and
+.B q
+never quit.
 .SS Text
 .TP
 .BR "type" ", " enter
 Edit the text.
 .B enter
 starts a new line.
-The box grows to 5 rows, then scrolls.
+.BR ctrl+e ", " ctrl+f ", " ctrl+t " and " ctrl+k
+are app keys here, so
+.B end
+and
+.B right
+do the line-editing jobs.
+.TP
+.B esc
+Go to the Fonts list.
 .SS Search
 .TP
 .B type
@@ -88,10 +152,10 @@ Fuzzy-filter fonts.
 Move in the list.
 .TP
 .B enter
-Select or deselect the highlighted font.
+Go to the list, keeping the query.
 .TP
 .B esc
-Clear the search.
+Clear the search and go to the list.
 .SS List
 .TP
 .BR up ", " down ", " j ", " k ", " g ", " G
@@ -108,24 +172,36 @@ Jump to the search.
 .TP
 .B esc
 Clear the search.
+.SS Filters
+The filter checklist, in its own frame below the Fonts pane.
 .TP
-.B q
-Quit.
-.SS Options pane
+.BR up ", " down ", " j ", " k
+Move.
+.TP
+.BR space ", " enter ", " right ", " l
+Toggle the row, or step Group by forward.
+.TP
+.BR left ", " h
+Step Group by back.
+.TP
+.B esc
+Back to the list.
+.SS Style pane
 .TP
 .BR up ", " down ", " j ", " k
 Move.
 .TP
 .BR space ", " enter
-Toggle the row.
+Change the row.
 .TP
 .BR left ", " right ", " h ", " l
-Change Group by, the background Mode, or a slider's value.
+Change Align, the background Mode, or a slider's value.
 .TP
-.B tab
-Back to the text, leaving the pane open.
+.B esc
+Go to the Fonts list, leaving the pane open.
+Below 79 columns Style closes so the Fonts pane can show.
 .TP
-.BR esc ", " ctrl+o
+.B ctrl+o
 Close the pane.
 .SH FILES
 Fonts are read from these directories when they exist:

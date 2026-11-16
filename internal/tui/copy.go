@@ -45,10 +45,8 @@ func (m Model) cursorBlock() (block, string) {
 	if err != nil || f == nil {
 		return block{}, name + " is not loaded"
 	}
-	lines := f.Render(m.state.Text, m.previewWidth())
-	if m.state.Center {
-		lines = figfont.Center(lines, f.Height, m.previewWidth())
-	}
+	w := m.previewWidth()
+	lines := m.state.Align.Apply(f.Render(m.state.Text, w), f.Height, w)
 	out, top, left := figfont.TrimBlock(lines)
 	return block{name, out, top, left}, ""
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
+	"github.com/jnaO/figlet-font-preview/internal/display"
 )
 
 func TestResolveVersion(t *testing.T) {
@@ -81,5 +82,35 @@ func TestCompletionsCoverFlags(t *testing.T) {
 				t.Errorf("%s completion does not offer --help", shell)
 			}
 		})
+	}
+}
+
+func TestAlignFlags(t *testing.T) {
+	cases := []struct {
+		args []string
+		want display.Align
+		rest []string
+	}{
+		{nil, display.AlignLeft, nil},
+		{[]string{"--center"}, display.AlignCenter, nil},
+		{[]string{"-right"}, display.AlignRight, nil},
+		{[]string{"--center", "--right"}, display.AlignRight, nil},
+		{[]string{"--right", "--center"}, display.AlignCenter, nil},
+		{[]string{"--center", "--center=false"}, display.AlignLeft, nil},
+		{[]string{"--right", "--center=false"}, display.AlignRight, nil},
+		{[]string{"--center", "Hello"}, display.AlignCenter, []string{"Hello"}},
+	}
+	for _, c := range cases {
+		fs := flag.NewFlagSet("figlet-font-preview", flag.ContinueOnError)
+		_, align, _ := registerFlags(fs)
+		if err := fs.Parse(c.args); err != nil {
+			t.Fatalf("%v: %v", c.args, err)
+		}
+		if *align != c.want {
+			t.Errorf("%v: align = %v, want %v", c.args, *align, c.want)
+		}
+		if len(fs.Args()) != len(c.rest) || (len(c.rest) > 0 && fs.Arg(0) != c.rest[0]) {
+			t.Errorf("%v: args = %v, want %v", c.args, fs.Args(), c.rest)
+		}
 	}
 }

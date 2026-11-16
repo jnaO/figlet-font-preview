@@ -346,6 +346,17 @@ func (r *renderer) putString(row []rune) {
 // Center pads each printed line block (height rows, as returned by Render)
 // so its widest row is centred in width columns.
 func Center(lines []string, height, width int) []string {
+	return padBlocks(lines, height, width, func(spare int) int { return spare / 2 })
+}
+
+// Right pads each printed line block so its widest row ends at width columns.
+func Right(lines []string, height, width int) []string {
+	return padBlocks(lines, height, width, func(spare int) int { return spare })
+}
+
+// padBlocks indents every row of each block by indent(spare), where spare is
+// width minus the block's widest row (at least 0).
+func padBlocks(lines []string, height, width int, indent func(spare int) int) []string {
 	out := make([]string, len(lines))
 	for i := 0; i < len(lines); i += height {
 		block := lines[i:min(i+height, len(lines))]
@@ -353,7 +364,7 @@ func Center(lines []string, height, width int) []string {
 		for _, l := range block {
 			widest = max(widest, utf8.RuneCountInString(l))
 		}
-		pad := strings.Repeat(" ", max(width-widest, 0)/2)
+		pad := strings.Repeat(" ", indent(max(width-widest, 0)))
 		for j, l := range block {
 			out[i+j] = pad + l
 		}

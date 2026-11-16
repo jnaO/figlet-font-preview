@@ -29,6 +29,7 @@ Parse FIGlet (`flf2a`) and TOIlet (`tlf2a`) fonts and render text **byte-identic
 - **RTL** (print_direction 1: `ivrit`, `jerusalem`, `mirror`, `mshebrew210`): characters prepend. Output is not justified; figlet right-justifies RTL fonts by default.
 - Hardblanks become spaces only in `putString`, after smushing.
 - **`Center(lines, height, width)`** pads each printed block (every `height` rows of `Render` output) by its widest row, so a block's art stays aligned. It is a separate step and not part of the figlet port.
+- **`Right(lines, height, width)`** pads each block by all of `width - widest` (`Center` pads half). It matches `figlet -r -w width+1` when every row in a block has the same length (checked with `standard`, "Hi", `-w 41`: every row is padded to 40). `widest` counts the glyphs' trailing spaces, so right-aligned art can stop a column short of the edge, as it does with `figlet -r`.
 - **`Trim(lines)`** strips trailing spaces, the indent shared by non-blank lines, and blank lines at both ends. Applied after `Center`, it keeps each block's offset relative to the widest block, which is what the TUI copies.
 
 ## Key Files

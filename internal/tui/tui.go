@@ -4,6 +4,7 @@ package tui
 import (
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,15 +14,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jnaO/figlet-font-preview/internal/action"
 	"github.com/jnaO/figlet-font-preview/internal/catalog"
 	"github.com/jnaO/figlet-font-preview/internal/display"
-	"github.com/jnaO/figlet-font-preview/internal/figfont"
 )
 
 const (
-	sidebarWidth = 30 // content columns, excluding the divider
+	sidebarWidth = 30 // content columns, excluding the frame
 	maxTextLines = 5  // the text area grows up to this many rows, then scrolls
-	textPrompt   = "Text › "
 	tickEvery    = 100 * time.Millisecond
 )
 
@@ -30,8 +30,9 @@ type focus int
 const (
 	focusText focus = iota
 	focusSearch
+	focusFilters
 	focusList
-	focusOptions // only while the options pane is open
+	focusStyle // only while the Style pane is open
 )
 
 type tickMsg struct{}
@@ -50,15 +51,18 @@ type Model struct {
 	search  textinput.Model
 	preview viewport.Model
 	focus   focus
+	palette paletteState
+	help    helpState
 
 	items          []display.Item
 	cursor, offset int
 	spans          map[string]span // preview line range of each rendered font
 
-	panelOpen            bool  // the options pane is open (or sliding in)
-	panelW               int   // the pane's current width while sliding
-	prevFocus            focus // focus to return to when the pane closes
-	optCursor, optOffset int
+	panelOpen bool  // the Style pane is open (or sliding in)
+	panelW    int   // the pane's current width while sliding
+	prevFocus focus // focus to return to when the pane closes
+
+	filterCur, styleCur rowCursor
 
 	status   string // transient footer message
 	statusID int
@@ -68,17 +72,12 @@ type Model struct {
 }
 
 // New builds the model and starts parsing every font in the background.
-func New(cat *catalog.Catalog, text string, center bool) Model {
+func New(cat *catalog.Catalog, text string, align display.Align) Model {
 	ti := textarea.New()
 	ti.ShowLineNumbers = false
 	ti.EndOfBufferCharacter = ' '
 	ti.CharLimit = 0
-	ti.SetPromptFunc(lipgloss.Width(textPrompt), func(line int) string {
-		if line == 0 {
-			return textPrompt
-		}
-		return strings.Repeat(" ", lipgloss.Width(textPrompt)-2) + "┆ "
-	})
+	ti.Prompt = ""
 	for _, st := range []*textarea.Style{&ti.FocusedStyle, &ti.BlurredStyle} {
 		st.CursorLine = lipgloss.NewStyle()
 		st.Prompt = styles.label
@@ -101,7 +100,7 @@ func New(cat *catalog.Catalog, text string, center bool) Model {
 		search:  si,
 		preview: viewport.New(0, 0),
 	}
-	m.state.Center = center
+	m.state.Align = align
 	m.state.Paint.Background.From, m.state.Paint.Background.To = themeSeed()
 	m.items = m.state.Sidebar()
 	return m
@@ -119,9 +118,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height, m.ready = msg.Width, msg.Height, true
+		var cmd tea.Cmd
+		switch {
+		case m.panelOpen && m.width < styleFitWidth:
+			cmd = m.toggleStyle()
+		case m.panelOpen && m.fontsHidden() && m.focus != focusText:
+			cmd = m.setFocus(focusStyle)
+		}
 		m.layout()
 		m.refreshPreview(false)
-		return m, nil
+		return m, cmd
 
 	case tickMsg:
 		select {
@@ -165,6 +171,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	switch {
+	case m.palette.open:
+		m.palette.input, cmd = m.palette.input.Update(msg)
+		return m, cmd
+	}
 	switch m.focus {
 	case focusText:
 		m.text, cmd = m.text.Update(msg)
@@ -175,26 +186,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c":
-		return m, tea.Quit
-	case "ctrl+o":
-		return m, m.toggleOptions()
-	case "ctrl+y":
-		return m, m.copyCursor()
-	case "ctrl+s":
-		return m, m.exportCursor()
-	case "tab":
-		return m, m.setFocus(m.nextFocus(1))
-	case "shift+tab":
-		return m, m.setFocus(m.nextFocus(-1))
-	case "pgup", "pgdown", "ctrl+u", "ctrl+d":
-		m.scrollPreview(msg.String())
-		return m, nil
+	if m.palette.open {
+		return m.paletteKey(msg)
+	}
+	if m.help.open {
+		return m.helpKey(msg)
+	}
+	if e, ok := lookupKey(msg.String()); ok {
+		return m, runEntry(&m, e, msg.String())
+	}
+	if msg.String() == "?" && m.focus != focusText && m.focus != focusSearch {
+		e, _ := binding(action.Help)
+		return m, runEntry(&m, e, "?")
 	}
 
 	switch m.focus {
 	case focusText:
+		if msg.String() == "esc" {
+			return m, m.focusFonts(focusList)
+		}
 		var cmd tea.Cmd
 		// The textarea scrolls its own view during Update based on its
 		// current height, so it updates at full height and is then fitted.
@@ -219,25 +229,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc":
 			m.search.SetValue("")
+			m.applyQuery()
+			return m, m.setFocus(focusList)
 		case "up", "down":
 			m.moveCursor(msg.String())
 			return m, nil
 		case "enter":
-			m.toggleCursor()
-			return m, nil
+			return m, m.setFocus(focusList)
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)
 		m.applyQuery()
 		return m, cmd
 
-	case focusOptions:
-		return m.handlePanelKey(msg.String())
+	case focusFilters:
+		return m.handleFiltersKey(msg.String())
+
+	case focusStyle:
+		return m.handleStyleKey(msg.String())
 
 	case focusList:
 		switch msg.String() {
-		case "q":
-			return m, tea.Quit
 		case "/":
 			return m, m.setFocus(focusSearch)
 		case "esc":
@@ -248,20 +260,42 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case " ", "enter":
 			m.toggleCursor()
 		case "x":
-			m.state.ClearSelection()
-			m.refreshPreview(true)
+			m.clearPicks()
 		}
 	}
 	return m, nil
 }
 
-// nextFocus cycles text → search → list (→ options while open).
-func (m Model) nextFocus(d int) focus {
-	n := int(focusList) + 1
-	if m.panelOpen {
-		n++
+// fontsStop maps the search box to the list, Fonts' tab stop.
+func fontsStop(f focus) focus {
+	if f == focusSearch {
+		return focusList
 	}
-	return focus((int(m.focus) + d + n) % n)
+	return f
+}
+
+// nextFocus cycles the tab stops text → Fonts (the list) → Filters → Style
+// (while open), skipping the left column while it is hidden.
+func (m Model) nextFocus(d int) focus {
+	stops := []focus{focusText, focusList, focusFilters, focusStyle}
+	i := slices.Index(stops, fontsStop(m.focus))
+	for range stops {
+		i = (i + d + len(stops)) % len(stops)
+		if m.focusVisible(stops[i]) {
+			return stops[i]
+		}
+	}
+	return m.focus
+}
+
+func (m Model) focusVisible(f focus) bool {
+	switch f {
+	case focusStyle:
+		return m.panelOpen
+	case focusSearch, focusFilters, focusList:
+		return !m.fontsHidden()
+	}
+	return true
 }
 
 func (m *Model) setFocus(f focus) tea.Cmd {
@@ -273,6 +307,8 @@ func (m *Model) setFocus(f focus) tea.Cmd {
 		return m.text.Focus()
 	case focusSearch:
 		return m.search.Focus()
+	case focusFilters:
+		m.filterCur.move(filterRows(), 0, m.filterHeight())
 	}
 	return nil
 }
@@ -311,11 +347,11 @@ func (m Model) cursorName() string {
 	return ""
 }
 
-// revealCursor scrolls the preview only as far as needed to show the cursor
-// font in full; fonts outside the render set leave the scroll untouched.
+// revealCursor centres the cursor font in the preview as far as scrolling
+// allows; fonts outside the render set leave the scroll untouched.
 func (m *Model) revealCursor() {
 	if s, ok := m.spans[m.cursorName()]; ok {
-		m.preview.SetYOffset(revealOffset(m.preview.YOffset, m.preview.Height, s.start, s.end))
+		m.preview.SetYOffset(revealOffset(m.preview.Height, s.start, s.end))
 	}
 }
 
@@ -332,6 +368,11 @@ func (m *Model) toggleCursor() {
 	m.revealCursor()
 }
 
+func (m *Model) clearPicks() {
+	m.state.ClearSelection()
+	m.refreshPreview(true)
+}
+
 func (m *Model) scrollPreview(key string) {
 	switch key {
 	case "pgup":
@@ -345,13 +386,15 @@ func (m *Model) scrollPreview(key string) {
 	}
 }
 
-// Layout: text area (1..maxTextLines rows), body (sidebar | preview), footer.
+// Layout: text bar (1..maxTextLines rows), body (Fonts | preview | Style), footer.
 func (m *Model) layout() {
-	m.text.SetWidth(max(m.width-1, 1))
+	m.text.SetWidth(max(m.barWidth()-4, 1))
 	m.text.SetHeight(m.textHeight())
 	m.search.Width = sidebarWidth - lipgloss.Width(m.search.Prompt) - 1
 	m.preview.Width = m.previewWidth()
 	m.preview.Height = m.bodyHeight()
+	m.filterCur.move(filterRows(), 0, m.filterHeight())
+	m.styleCur.move(styleRows(), 0, m.styleHeight())
 	m.clampOffset()
 }
 
@@ -371,18 +414,39 @@ func (m *Model) resetTextScroll() {
 
 func (m Model) textHeight() int { return max(1, min(m.text.LineCount(), maxTextLines)) }
 
-func (m Model) bodyHeight() int { return max(m.height-m.textHeight()-1, 1) }
+// barWidth is the text bar's outer width; the last terminal column stays free.
+func (m Model) barWidth() int { return max(m.width-1, 5) }
+
+// barHeight is the text rows plus the frame's top and bottom edges.
+func (m Model) barHeight() int { return m.textHeight() + 2 }
+
+func (m Model) bodyHeight() int { return max(m.height-m.barHeight()-1, 1) }
+
+// textBar frames the text area.
+func (m Model) textBar() string {
+	return frame("Text", "ctrl+e", m.text.View(), m.barWidth(), m.textHeight(), 1, 1, m.focus == focusText)
+}
 
 func (m Model) previewWidth() int {
-	w := m.width - sidebarWidth - 3
+	w := m.width - frameCols
+	if !m.fontsHidden() {
+		w -= fontsCols
+	}
 	if m.panelW > 0 {
-		w -= m.panelW + 1 // pane plus its divider
+		w -= m.panelW + styleFrameCols
 	}
 	return max(w, 1)
 }
 
-// listHeight is the number of font rows the sidebar shows.
-func (m Model) listHeight() int { return max(m.bodyHeight()-3, 1) }
+// filterHeight is the number of filter rows the Filters frame shows; Fonts
+// keeps at least one list row when the body allows.
+func (m Model) filterHeight() int {
+	return max(min(max(m.bodyHeight()/3, 3), len(filterRows()), m.bodyHeight()-8), 1)
+}
+
+// listHeight is the number of font rows the Fonts frame shows: both frames'
+// four border rows, the Filters window, search, count and legend take the rest.
+func (m Model) listHeight() int { return max(m.bodyHeight()-m.filterHeight()-7, 1) }
 
 func (m *Model) clampOffset() {
 	h := m.listHeight()
@@ -459,10 +523,7 @@ func (m Model) previewContent() (string, map[string]span) {
 		case f == nil:
 			body = []string{"loading…"}
 		default:
-			body = f.Render(m.state.Text, w)
-			if m.state.Center {
-				body = figfont.Center(body, f.Height, w)
-			}
+			body = m.state.Align.Apply(f.Render(m.state.Text, w), f.Height, w)
 		}
 		switch {
 		case hl && f != nil:
@@ -502,32 +563,52 @@ func (m Model) View() string {
 	if !m.ready {
 		return ""
 	}
-	header := m.text.View()
-	divider := styles.divider.Render(strings.Repeat("│\n", m.bodyHeight()-1) + "│")
-	cols := []string{
-		m.sidebarView(),
-		divider,
-		lipgloss.NewStyle().PaddingLeft(1).Width(m.previewWidth() + 1).Render(m.preview.View()),
+	header := m.textBar()
+	var cols []string
+	if !m.fontsHidden() {
+		cols = append(cols, m.sidebarView())
 	}
+	cols = append(cols, lipgloss.NewStyle().PaddingLeft(1).Width(m.previewWidth()+1).Render(m.preview.View()))
 	if m.panelW > 0 {
-		cols = append(cols, divider, m.optionsView())
+		cols = append(cols, m.styleView())
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	screen := lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	if m.help.open {
+		box, w, h := m.helpView()
+		screen = overlay(screen, box, (m.width-w)/2, m.barHeight()+(m.bodyHeight()-h)/2)
+	}
+	if m.palette.open {
+		screen = overlay(screen, m.paletteView(), (m.width-m.paletteBox())/2, m.barHeight())
+	}
+	return screen
 }
 
+// sidebarView is the left column: the Fonts frame above the Filters frame.
 func (m Model) sidebarView() string {
-	lines := []string{
-		m.search.View(),
-		styles.dim.Render(m.countLine()),
-		styles.rule.Render(strings.Repeat("─", sidebarWidth)),
-	}
+	col := lipgloss.JoinVertical(lipgloss.Left, m.fontsView(), m.filtersView())
+	return lipgloss.NewStyle().Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(col)
+}
+
+// fontsView frames the search, count, legend and font list.
+func (m Model) fontsView() string {
+	lines := []string{m.search.View(), styles.dim.Render(m.countLine()), legendLine()}
 	end := min(m.offset+m.listHeight(), len(m.items))
 	for i := m.offset; i < end; i++ {
 		lines = append(lines, m.itemView(i))
 	}
-	return lipgloss.NewStyle().Width(sidebarWidth).Height(m.bodyHeight()).
-		MaxHeight(m.bodyHeight()).Render(strings.Join(lines, "\n"))
+	return frame("Fonts", "ctrl+f", strings.Join(lines, "\n"), fontsCols, 3+m.listHeight(), 0, 0,
+		m.focus == focusSearch || m.focus == focusList)
+}
+
+// filtersView frames the filter window.
+func (m Model) filtersView() string {
+	var lines []string
+	rows := filterRows()
+	for i := m.filterCur.offset; i < min(m.filterCur.offset+m.filterHeight(), len(rows)); i++ {
+		lines = append(lines, m.optionLine(rows[i], i == m.filterCur.cursor && m.focus == focusFilters, sidebarWidth))
+	}
+	return frame("Filters", "ctrl+t", strings.Join(lines, "\n"), fontsCols, m.filterHeight(), 0, 0, m.focus == focusFilters)
 }
 
 func (m Model) countLine() string {
@@ -537,11 +618,22 @@ func (m Model) countLine() string {
 			n++
 		}
 	}
-	s := fmt.Sprintf("%d/%d fonts · %d selected", n, len(m.cat.Entries), m.state.SelectedCount())
-	if m.loading {
+	return truncate(formatCount(n, len(m.cat.Entries), m.state.SelectedCount(), m.loading), sidebarWidth)
+}
+
+// formatCount reads "listed/installed · picked ●", plus " · loading" while fonts load.
+func formatCount(listed, installed, picked int, loading bool) string {
+	s := fmt.Sprintf("%d/%d · %d ●", listed, installed, picked)
+	if loading {
 		s += " · loading"
 	}
-	return truncate(s, sidebarWidth)
+	return s
+}
+
+// legendLine explains the two list marks: › drives copy and SVG, ● narrows the preview.
+func legendLine() string {
+	return styles.cursor.Render("›") + styles.dim.Render(" copy/svg · ") +
+		styles.selected.Render("●") + styles.dim.Render(" preview only")
 }
 
 func (m Model) itemView(i int) string {
@@ -567,7 +659,7 @@ func (m Model) itemView(i int) string {
 	}
 	if i == m.cursor {
 		cur := styles.cursor
-		if m.focus == focusText {
+		if m.focus != focusSearch && m.focus != focusList {
 			cur = styles.cursorInactive
 		}
 		return cur.Render("›") + " " + row
@@ -576,21 +668,10 @@ func (m Model) itemView(i int) string {
 }
 
 func (m Model) footerView() string {
-	var keys string
-	switch m.focus {
-	case focusText:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type text · enter: new line · tab: search · pgup/pgdn: scroll · ctrl+c: quit"
-	case focusSearch:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · type to filter · ↑/↓: move · enter: select · esc: clear · tab: list"
-	case focusList:
-		keys = "ctrl+o: options · ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: select · x: clear selection · /: search · tab: text · q: quit"
-	case focusOptions:
-		keys = "ctrl+y: copy · ctrl+s: svg · ↑/↓ j/k: move · space: toggle · ←/→: group by · tab: text · esc/ctrl+o: close options"
-	}
 	if m.status != "" {
-		return styles.label.Render(truncate(m.status, m.width))
+		return styles.label.Render(truncate(m.status, m.width-1))
 	}
-	return styles.dim.Render(truncate(keys, m.width))
+	return styles.dim.Render(truncate(footerKeys(m.width-1), m.width-1))
 }
 
 // highlight styles the runes of s at the matched indexes.
@@ -624,15 +705,13 @@ func truncate(s string, w int) string {
 	return string(r[:w-1]) + "…"
 }
 
-// revealOffset returns the smallest change to the scroll offset y (viewport
-// height h) that brings lines [start, end) fully into view, or the block's
-// first line when it is taller than the viewport.
-func revealOffset(y, h, start, end int) int {
-	switch {
-	case start < y:
+// revealOffset returns the scroll offset (viewport height h) that centres
+// lines [start, end), with any odd spare row below; a block of h lines or more
+// gets its first line at the top. The result may fall outside the scrollable
+// range; viewport.SetYOffset clamps it.
+func revealOffset(h, start, end int) int {
+	if end-start >= h {
 		return start
-	case end > y+h:
-		return min(start, end-h)
 	}
-	return y
+	return start - (h-(end-start))/2
 }

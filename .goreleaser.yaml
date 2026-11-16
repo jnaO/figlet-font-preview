@@ -32,6 +32,7 @@ archives:
     files:
       - LICENSE
       - README.md
+      - THIRD_PARTY_NOTICES
       - man/*
       - completions/*
 

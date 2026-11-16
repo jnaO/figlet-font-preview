@@ -7,10 +7,11 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jnaO/figlet-font-preview/internal/display"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
 
-// slider is one numeric colour setting in the options pane.
+// slider is one numeric colour setting in the Style pane.
 type slider int
 
 const (
@@ -94,7 +95,7 @@ func stepSlider(st *paint.Style, k slider, dir int) {
 	sp.set(st, v)
 }
 
-// paintRows lists the colour rows of the options pane.
+// paintRows lists the colour rows of the Style pane.
 func paintRows() []optRow {
 	return []optRow{
 		{kind: optHeading, label: "Rainbow"},
@@ -148,6 +149,10 @@ func headingLine(st *paint.Style, label string) string {
 	}
 	swatch := lipgloss.NewStyle().Background(colour(c)).Render("  ")
 	return h + " " + swatch + " " + styles.dim.Render(c.Hex())
+}
+
+func alignLine(a display.Align) string {
+	return "    Align     ‹ " + styles.label.Render(a.String()) + " ›"
 }
 
 func bgModeLine(st *paint.Style) string {

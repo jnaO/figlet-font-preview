@@ -63,3 +63,34 @@ func TestSelectionSurvivesSearch(t *testing.T) {
 		t.Fatal("selection not cleared")
 	}
 }
+
+func TestAlignApply(t *testing.T) {
+	lines := []string{"ab", "abcd", "x", "x"}
+	cases := []struct {
+		a    Align
+		want []string
+	}{
+		{AlignLeft, lines},
+		{AlignCenter, []string{"   ab", "   abcd", "    x", "    x"}},
+		{AlignRight, []string{"      ab", "      abcd", "         x", "         x"}},
+	}
+	for _, c := range cases {
+		if got := c.a.Apply(lines, 2, 10); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%v: got %q, want %q", c.a, got, c.want)
+		}
+	}
+	if New(fonts, "").Align != AlignLeft {
+		t.Error("default should be left")
+	}
+	if !New(fonts, "").Collapse {
+		t.Error("Collapse should default to on")
+	}
+}
+
+func TestAlignString(t *testing.T) {
+	for a, want := range map[Align]string{AlignLeft: "left", AlignCenter: "center", AlignRight: "right"} {
+		if a.String() != want {
+			t.Errorf("%d: got %q, want %q", a, a.String(), want)
+		}
+	}
+}

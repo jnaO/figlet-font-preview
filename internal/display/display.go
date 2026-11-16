@@ -8,6 +8,7 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
+	"github.com/jnaO/figlet-font-preview/internal/figfont"
 	"github.com/jnaO/figlet-font-preview/internal/fontclass"
 	"github.com/jnaO/figlet-font-preview/internal/paint"
 )
@@ -20,6 +21,39 @@ const SimilarCap = 30
 
 // Unclassified labels the group of fonts without a profile.
 const Unclassified = "Unclassified"
+
+// Align is how each rendered line block sits in the preview width.
+type Align int
+
+const (
+	AlignLeft Align = iota // the zero value
+	AlignCenter
+	AlignRight
+)
+
+// NumAligns is the number of Align values.
+const NumAligns = 3
+
+func (a Align) String() string {
+	switch a {
+	case AlignCenter:
+		return "center"
+	case AlignRight:
+		return "right"
+	}
+	return "left"
+}
+
+// Apply pads each block of height rows in lines to this alignment within width.
+func (a Align) Apply(lines []string, height, width int) []string {
+	switch a {
+	case AlignCenter:
+		return figfont.Center(lines, height, width)
+	case AlignRight:
+		return figfont.Right(lines, height, width)
+	}
+	return lines
+}
 
 // Item is a sidebar row: a font, or a group header when Header is set.
 type Item struct {
@@ -36,7 +70,7 @@ func (it Item) IsHeader() bool { return it.Header != "" }
 // State is the app state over a fixed, sorted list of font names.
 type State struct {
 	Text     string
-	Center   bool           // centre each rendered line block in the preview width
+	Align    Align          // placement of each rendered line block in the preview width
 	Collapse bool           // show one representative per exact-duplicate group
 	GroupBy  fontclass.Axis // NoGroup, or the axis the sidebar is grouped by
 	Paint    paint.Style    // colouring of the cursor font and of exports
@@ -51,7 +85,7 @@ type State struct {
 
 // New returns a state over fonts (expected sorted) with the given text.
 func New(fonts []string, text string) *State {
-	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, GroupBy: NoGroup, Paint: paint.Default()}
+	return &State{Text: text, fonts: fonts, selected: map[string]bool{}, Collapse: true, GroupBy: NoGroup, Paint: paint.Default()}
 }
 
 func (s *State) Query() string                         { return s.query }
