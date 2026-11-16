@@ -21,20 +21,87 @@ import (
 func TestRevealOffset(t *testing.T) {
 	const h = 10
 	cases := []struct {
-		name             string
-		y, start, end, w int
+		name          string
+		start, end, w int
 	}{
-		{"fully visible stays", 0, 2, 8, 0},
-		{"exactly fits at bottom stays", 0, 4, 10, 0},
-		{"below scrolls just enough", 0, 8, 14, 4},
-		{"above scrolls to its top", 20, 12, 18, 12},
-		{"taller than view shows top", 0, 5, 30, 5},
-		{"taller than view above shows top", 40, 5, 30, 5},
+		{"even spare rows centre", 20, 24, 17},
+		{"odd spare rows put the extra row below", 20, 25, 18},
+		{"exactly the view height shows top", 20, 30, 20},
+		{"taller than view shows top", 5, 30, 5},
+		{"near the start is negative", 1, 4, -2},
 	}
 	for _, c := range cases {
-		if got := revealOffset(c.y, h, c.start, c.end); got != c.w {
+		if got := revealOffset(h, c.start, c.end); got != c.w {
 			t.Errorf("%s: got %d, want %d", c.name, got, c.w)
 		}
+	}
+}
+
+func centreRow(m Model) int {
+	s := m.spans[m.cursorName()]
+	return (m.preview.Height - (s.end - s.start)) / 2
+}
+
+func TestCursorMoveCentresFont(t *testing.T) {
+	m := key(testModel(t, 30), "tab")
+	for range 10 {
+		m = key(m, "down")
+	}
+	if got := screenRow(m, m.cursorName()); got != centreRow(m) {
+		t.Fatalf("moving down: row %d, want %d", got, centreRow(m))
+	}
+	before := m.preview.YOffset
+	m = key(m, "down")
+	if m.preview.YOffset == before {
+		t.Fatal("a move between two visible fonts did not scroll")
+	}
+	if got := screenRow(m, m.cursorName()); got != centreRow(m) {
+		t.Fatalf("down between visible fonts: row %d, want %d", got, centreRow(m))
+	}
+	m = key(m, "up")
+	if got := screenRow(m, m.cursorName()); got != centreRow(m) {
+		t.Fatalf("moving up: row %d, want %d", got, centreRow(m))
+	}
+}
+
+func TestCursorJumpsClampAtEnds(t *testing.T) {
+	m := key(testModel(t, 30), "tab", "G")
+	if want := m.preview.TotalLineCount() - m.preview.Height; m.preview.YOffset != want {
+		t.Fatalf("G: offset %d, want %d", m.preview.YOffset, want)
+	}
+	m = key(m, "g")
+	if m.preview.YOffset != 0 {
+		t.Fatalf("g: offset %d, want 0", m.preview.YOffset)
+	}
+}
+
+func TestCursorMoveCentresAfterFreeScroll(t *testing.T) {
+	m := key(testModel(t, 30), "tab")
+	for range 10 {
+		m = key(m, "down")
+	}
+	m = key(m, "pgdown", "down")
+	if got := screenRow(m, m.cursorName()); got != centreRow(m) {
+		t.Fatalf("after pgdown: row %d, want %d", got, centreRow(m))
+	}
+}
+
+func TestPaletteUnpickCentresWhileFontsHidden(t *testing.T) {
+	m := key(testModel(t, 30), "tab")
+	for range 14 {
+		m = key(m, "down")
+	}
+	m = key(m, "space")
+	m = settle(key(resize(m, 70, 24), "ctrl+o"))
+	if !m.fontsHidden() {
+		t.Fatal("Fonts should be hidden")
+	}
+	m = key(m, "ctrl+k", "u", "n", "p", "i", "c", "k", "enter")
+	if m.preview.YOffset == 0 {
+		t.Fatal("preview did not scroll")
+	}
+	if got := screenRow(m, m.cursorName()); got != centreRow(m) {
+		t.Fatalf("row %d, want %d", got, centreRow(m))
 	}
 }
 

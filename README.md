@@ -60,7 +60,7 @@ figlet-font-preview --right Hello         # right-align it; the last of --center
 | empty | some | the selected fonts |
 | active | any | the selected fonts, then every fuzzy match |
 
-The selection is kept while you search and when you clear the search. The preview follows the highlighted font in the list, scrolling only when that font is not fully visible, and keeps it on the same row when you edit the text.
+The selection is kept while you search and when you clear the search. The preview follows the highlighted font in the list, centring that font vertically as far as scrolling allows, and keeps it on the same row when you edit the text.
 
 ### Keys
 

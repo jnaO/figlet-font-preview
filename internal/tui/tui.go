@@ -347,11 +347,11 @@ func (m Model) cursorName() string {
 	return ""
 }
 
-// revealCursor scrolls the preview only as far as needed to show the cursor
-// font in full; fonts outside the render set leave the scroll untouched.
+// revealCursor centres the cursor font in the preview as far as scrolling
+// allows; fonts outside the render set leave the scroll untouched.
 func (m *Model) revealCursor() {
 	if s, ok := m.spans[m.cursorName()]; ok {
-		m.preview.SetYOffset(revealOffset(m.preview.YOffset, m.preview.Height, s.start, s.end))
+		m.preview.SetYOffset(revealOffset(m.preview.Height, s.start, s.end))
 	}
 }
 
@@ -705,15 +705,13 @@ func truncate(s string, w int) string {
 	return string(r[:w-1]) + "…"
 }
 
-// revealOffset returns the smallest change to the scroll offset y (viewport
-// height h) that brings lines [start, end) fully into view, or the block's
-// first line when it is taller than the viewport.
-func revealOffset(y, h, start, end int) int {
-	switch {
-	case start < y:
+// revealOffset returns the scroll offset (viewport height h) that centres
+// lines [start, end), with any odd spare row below; a block of h lines or more
+// gets its first line at the top. The result may fall outside the scrollable
+// range; viewport.SetYOffset clamps it.
+func revealOffset(h, start, end int) int {
+	if end-start >= h {
 		return start
-	case end > y+h:
-		return min(start, end-h)
 	}
-	return y
+	return start - (h-(end-start))/2
 }
