@@ -82,14 +82,14 @@ func TestHelpFitsAndScrollsOnShortTerminals(t *testing.T) {
 	}
 	m := key(resize(testModel(t, 3), 80, 20), "tab", "?")
 	top := ansi.Strip(m.View())
-	if strings.Contains(top, "close the pane") {
+	if strings.Contains(top, "close the pane") || !strings.Contains(top, "↓ more · esc closes") {
 		t.Fatal("the last line should be off screen with the more hint at 80x20")
 	}
 	for range 10 {
 		m = key(m, "pgdown")
 	}
 	end := ansi.Strip(m.View())
-	if !strings.Contains(end, "close the pane") || end == top {
+	if !strings.Contains(end, "close the pane") || strings.Contains(end, "↓ more") || !strings.Contains(end, "esc closes") || end == top {
 		t.Fatal("pgdown never reached the last line")
 	}
 	assertFits(t, m, 20)
@@ -105,6 +105,14 @@ func TestHelpFitsAndScrollsOnShortTerminals(t *testing.T) {
 	}
 	if !m.help.view.AtTop() {
 		t.Error("k never reached the top")
+	}
+}
+
+func TestHelpFitsWithoutMoreHint(t *testing.T) {
+	m := key(resize(testModel(t, 3), 200, 80), "tab", "?")
+	v := ansi.Strip(m.View())
+	if strings.Contains(v, "↓ more") || !strings.Contains(v, "╰─ esc closes ─") {
+		t.Fatalf("bottom edge of a fitting list:\n%s", v)
 	}
 }
 

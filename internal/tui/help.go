@@ -189,5 +189,11 @@ func (m *Model) syncHelp() (int, int) {
 
 func (m Model) helpView() (string, int, int) {
 	w, h := m.syncHelp()
-	return frame("Help", "?", m.help.view.View(), w, h-2, 1, 1, true), w, h
+	label := "esc closes"
+	if !m.help.view.AtBottom() {
+		label = "↓ more · " + label
+	}
+	lines := strings.Split(frame("Help", "?", m.help.view.View(), w, h-2, 1, 1, true), "\n")
+	lines[len(lines)-1] = bottomEdge(label, w)
+	return strings.Join(lines, "\n"), w, h
 }

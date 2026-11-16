@@ -24,6 +24,13 @@ func frame(title, key, body string, outer, height, padL, padR int, focused bool)
 	return top + "\n" + box.Render(body)
 }
 
+// bottomEdge is the focused frame's rounded bottom edge, outer columns wide,
+// with label in the accent after "╰─ ".
+func bottomEdge(label string, outer int) string {
+	used := lipgloss.Width("╰─ " + label + " ╯")
+	return styles.label.Render("╰─ " + label + " " + strings.Repeat("─", max(outer-used, 0)) + "╯")
+}
+
 // overlay writes box over bg with its top-left corner at column x, row y.
 // Each covered row keeps bg's cells left and right of the box, with their
 // colours; rows of box that fall below bg are dropped.
