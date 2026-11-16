@@ -47,7 +47,8 @@ internal/catalog/catalog.go
                    SystemRoots (package-manager dirs, empty on Windows; the only roots tests use), DefaultRoots() = SystemRoots + ~/figlet-fonts;
                    Discover(roots): recursive walk following symlinks, *.flf/*.tlf only, dedupe by real path
                    (Entry.Root = index of the first root that reached the file),
-                   unique names; Entry.Load (once, concurrent-safe), Entry.State/Font (non-blocking), Preload(workers)
+                   unique names; Entry.Load (once, concurrent-safe), Entry.State/Font (non-blocking), Preload(workers);
+                   NoFontsMessage(roots, goos, addHint): the empty-catalog text (searched roots, per-GOOS install hint, the front-end's addHint line, FontSources mirrored in README.md, disclaimer)
 internal/fontclass/
   analyze.go       Analyze(font) Profile: Stroke/Weight/Size/Slant from fixed probes; Axes() is THE axis list
   index.go         Index: duplicate groups + representative, facet values, Similar(name) by fingerprint
@@ -99,8 +100,7 @@ internal/tui/
                    setStatus footer messages clear after statusFor
   export.go        global ctrl+s exportCursor → svgexport.Render with State.Paint → newfile.Write (SafeName for the file name)
                    in exportDir (a var tests replace)
-  nofonts.go       noFontsMessage: the empty-catalog preview (searched roots, per-GOOS install hint, fontSources
-                   links mirrored in README.md, disclaimer)
+  nofonts.go       addFolderHint: the CLI's add-folder line, passed to catalog.NoFontsMessage by previewContent
   lolcat.go        the cursor font's colouring from State.Paint: per-rune Rainbow, background flat (theme tint or From)
                    or per cell over preview width × block rows (linear/radial); bgStyle for its header row
   styles.go        all lipgloss styles (adaptive light/dark); tintColour + themeSeed (background sliders start at the tint)
